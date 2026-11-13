@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import type { Book, ReaderTheme } from '@/types/book';
+import type { Book } from '@/types/book';
 import BookCard from './BookCard';
 import DropzoneUploader from './DropzoneUploader';
 import { createDemoBook } from '@/lib/demo/sampleBook';
@@ -10,7 +10,6 @@ import { useReaderStore } from '@/lib/store/useReaderStore';
 import {
   BookOpen,
   Search,
-  Filter,
   Sparkles,
   Layers,
   CheckCircle2,
@@ -32,7 +31,6 @@ export default function Bookshelf({ books, onOpenBook, onRefreshBooks }: Bookshe
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'pdf' | 'epub' | 'reading' | 'completed'>('all');
   const [sortBy, setSortBy] = useState<'lastRead' | 'title' | 'progress'>('lastRead');
-  const [isAddingBook, setIsAddingBook] = useState<boolean>(false);
 
   const { settings, setTheme } = useReaderStore();
 
@@ -90,71 +88,98 @@ export default function Bookshelf({ books, onOpenBook, onRefreshBooks }: Bookshe
     onRefreshBooks();
   };
 
-  // Theme styling background
-  const getThemeClass = () => {
-    switch (settings.theme) {
-      case 'sepia':
-        return 'bg-[#F7F2E4] text-[#3D2E1E]';
-      case 'dark':
-        return 'bg-[#0C0C0E] text-[#D4D4D8]';
-      case 'light':
-      default:
-        return 'bg-[#FAFAFA] text-[#18181B]';
-    }
-  };
-
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${getThemeClass()}`}>
-      {/* Navigation Header */}
-      <header className="sticky top-0 z-30 backdrop-blur-xl border-b border-black/5 dark:border-white/10 bg-white/70 dark:bg-zinc-950/70">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Logo & Brand */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 text-white flex items-center justify-center shadow-md">
+    <div
+      data-theme={settings.theme}
+      className="min-h-screen transition-colors duration-200"
+      style={{
+        backgroundColor: 'var(--bg-page)',
+        color: 'var(--text-primary)',
+      }}
+    >
+      {/* Editorial Navigation Header */}
+      <header
+        className="sticky top-0 z-30 backdrop-blur-md border-b transition-colors"
+        style={{
+          backgroundColor: 'var(--bg-surface)',
+          borderColor: 'var(--border-subtle)',
+        }}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          {/* Logo & Catalog Title */}
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shadow-xs"
+              style={{
+                backgroundColor: 'var(--accent)',
+                color: '#ffffff',
+              }}
+            >
               <Library className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight">LuminaRead</h1>
-              <p className="text-[10px] uppercase font-semibold tracking-wider text-amber-600 dark:text-amber-400">
-                Offline E-Book Reader
-              </p>
+              <div className="flex items-center gap-2">
+                <span className="font-editorial text-xl font-bold tracking-tight">LuminaRead</span>
+                <span
+                  className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+                  style={{
+                    backgroundColor: 'var(--bg-subtle)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                >
+                  Offline Library
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Quick Global Theme Switcher */}
-          <div className="flex items-center gap-2">
+          {/* Quick Theme Switcher & Demo Action */}
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => handleLoadDemo()}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-500/30 hover:border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-semibold transition-all hover:scale-105 active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-95"
+              style={{
+                backgroundColor: 'var(--accent-bg)',
+                color: 'var(--accent-text)',
+                border: '1px solid var(--border-color)',
+              }}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Buku Demo
+              <span>Buku Demo</span>
             </button>
 
-            <div className="flex items-center gap-1 p-1 rounded-full bg-black/5 dark:bg-white/10 border border-black/5 dark:border-white/10">
+            {/* Segmented Theme Switcher */}
+            <div
+              className="flex items-center p-1 rounded-xl border"
+              style={{
+                backgroundColor: 'var(--bg-subtle)',
+                borderColor: 'var(--border-color)',
+              }}
+            >
               <button
                 onClick={() => setTheme('light')}
-                title="Mode Terang"
-                className={`p-1.5 rounded-full transition-colors ${
-                  settings.theme === 'light' ? 'bg-white shadow text-amber-500' : 'opacity-60'
+                title="Pristine Light"
+                className={`p-1.5 rounded-lg transition-all ${
+                  settings.theme === 'light' ? 'bg-white shadow-xs text-amber-600' : 'opacity-60 hover:opacity-100'
                 }`}
               >
                 <Sun className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setTheme('sepia')}
-                title="Mode Sepia (Hangat)"
-                className={`p-1.5 rounded-full transition-colors ${
-                  settings.theme === 'sepia' ? 'bg-[#f0e6ce] shadow text-amber-800' : 'opacity-60'
+                title="Warm Parchment (Sepia)"
+                className={`p-1.5 rounded-lg transition-all ${
+                  settings.theme === 'sepia' ? 'bg-[#EFE6D0] shadow-xs text-amber-900 font-bold' : 'opacity-60 hover:opacity-100'
                 }`}
               >
                 <Coffee className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setTheme('dark')}
-                title="Mode Gelap (Midnight)"
-                className={`p-1.5 rounded-full transition-colors ${
-                  settings.theme === 'dark' ? 'bg-zinc-800 shadow text-indigo-400' : 'opacity-60'
+                title="Midnight Dark"
+                className={`p-1.5 rounded-lg transition-all ${
+                  settings.theme === 'dark' ? 'bg-stone-800 shadow-xs text-amber-400' : 'opacity-60 hover:opacity-100'
                 }`}
               >
                 <Moon className="w-4 h-4" />
@@ -164,37 +189,83 @@ export default function Bookshelf({ books, onOpenBook, onRefreshBooks }: Bookshe
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Statistics Hero Banner */}
+      {/* Main Content Area */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        {/* Curated Stats Bar */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-5 rounded-2xl bg-white/60 dark:bg-zinc-900/40 border border-black/5 dark:border-white/10 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+          <div
+            className="p-5 rounded-2xl border shadow-xs flex items-center gap-4 transition-all"
+            style={{
+              backgroundColor: 'var(--bg-surface)',
+              borderColor: 'var(--border-color)',
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                backgroundColor: 'var(--bg-subtle)',
+                color: 'var(--accent)',
+              }}
+            >
               <Layers className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs uppercase font-semibold opacity-60">Total Koleksi</p>
-              <p className="text-2xl font-bold">{totalBooks} Buku</p>
+              <p className="text-xs uppercase font-bold tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                Total Koleksi
+              </p>
+              <p className="text-2xl font-editorial font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>
+                {totalBooks} <span className="text-sm font-sans font-normal opacity-70">Buku</span>
+              </p>
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-white/60 dark:bg-zinc-900/40 border border-black/5 dark:border-white/10 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+          <div
+            className="p-5 rounded-2xl border shadow-xs flex items-center gap-4 transition-all"
+            style={{
+              backgroundColor: 'var(--bg-surface)',
+              borderColor: 'var(--border-color)',
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-400"
+              style={{
+                backgroundColor: 'var(--bg-subtle)',
+              }}
+            >
               <Clock className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs uppercase font-semibold opacity-60">Sedang Dibaca</p>
-              <p className="text-2xl font-bold">{readingBooks} Buku</p>
+              <p className="text-xs uppercase font-bold tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                Sedang Dibaca
+              </p>
+              <p className="text-2xl font-editorial font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>
+                {readingBooks} <span className="text-sm font-sans font-normal opacity-70">Buku</span>
+              </p>
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-white/60 dark:bg-zinc-900/40 border border-black/5 dark:border-white/10 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+          <div
+            className="p-5 rounded-2xl border shadow-xs flex items-center gap-4 transition-all"
+            style={{
+              backgroundColor: 'var(--bg-surface)',
+              borderColor: 'var(--border-color)',
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-emerald-700 dark:text-emerald-400"
+              style={{
+                backgroundColor: 'var(--bg-subtle)',
+              }}
+            >
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs uppercase font-semibold opacity-60">Tamat Dibaca</p>
-              <p className="text-2xl font-bold">{completedBooks} Buku</p>
+              <p className="text-xs uppercase font-bold tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                Tamat Dibaca
+              </p>
+              <p className="text-2xl font-editorial font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>
+                {completedBooks} <span className="text-sm font-sans font-normal opacity-70">Buku</span>
+              </p>
             </div>
           </div>
         </section>
@@ -209,17 +280,28 @@ export default function Bookshelf({ books, onOpenBook, onRefreshBooks }: Bookshe
           />
         </section>
 
-        {/* Controls Bar (Search, Filters, Sort) */}
-        <section className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 pt-4 border-t border-black/5 dark:border-white/10">
+        {/* Filter & Search Bar */}
+        <section
+          className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 pt-6 border-t"
+          style={{ borderColor: 'var(--border-subtle)' }}
+        >
           {/* Search Box */}
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 opacity-40" />
+            <Search
+              className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2"
+              style={{ color: 'var(--text-muted)' }}
+            />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari judul buku atau nama penulis..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/60 dark:bg-zinc-900/40 border border-black/10 dark:border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm font-medium focus:outline-none transition-all"
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderColor: 'var(--border-color)',
+                color: 'var(--text-primary)',
+              }}
             />
           </div>
 
@@ -235,11 +317,15 @@ export default function Bookshelf({ books, onOpenBook, onRefreshBooks }: Bookshe
               <button
                 key={f.id}
                 onClick={() => setSelectedFilter(f.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  selectedFilter === f.id
-                    ? 'bg-amber-500 text-white shadow-sm'
-                    : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 opacity-70'
-                }`}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                style={{
+                  backgroundColor:
+                    selectedFilter === f.id ? 'var(--accent)' : 'var(--bg-subtle)',
+                  color: selectedFilter === f.id ? '#ffffff' : 'var(--text-secondary)',
+                  border: '1px solid',
+                  borderColor:
+                    selectedFilter === f.id ? 'var(--accent)' : 'var(--border-color)',
+                }}
               >
                 {f.label}
               </button>
@@ -248,11 +334,16 @@ export default function Bookshelf({ books, onOpenBook, onRefreshBooks }: Bookshe
 
           {/* Sort Selector */}
           <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4 opacity-50 shrink-0" />
+            <SlidersHorizontal className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-white/60 dark:bg-zinc-900/40 border border-black/10 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none"
+              className="border rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none cursor-pointer"
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderColor: 'var(--border-color)',
+                color: 'var(--text-primary)',
+              }}
             >
               <option value="lastRead">Terakhir Dibaca</option>
               <option value="title">Judul (A-Z)</option>
@@ -276,17 +367,34 @@ export default function Bookshelf({ books, onOpenBook, onRefreshBooks }: Bookshe
               ))}
             </div>
           ) : (
-            <div className="py-20 flex flex-col items-center justify-center text-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <div
+              className="py-24 rounded-3xl border flex flex-col items-center justify-center text-center gap-3"
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderColor: 'var(--border-subtle)',
+              }}
+            >
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-xs"
+                style={{
+                  backgroundColor: 'var(--bg-subtle)',
+                  color: 'var(--accent)',
+                }}
+              >
                 <BookOpen className="w-8 h-8" />
               </div>
-              <h3 className="text-base font-bold">Belum Ada Buku di Rak Ini</h3>
-              <p className="text-xs opacity-60 max-w-sm">
-                Unggah file PDF atau EPUB Anda di atas, atau coba buku panduan demo untuk melihat fitur membaca.
+              <h3 className="font-editorial text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                Belum Ada Buku di Rak Ini
+              </h3>
+              <p className="text-xs max-w-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+                Unggah file PDF atau EPUB Anda di atas, atau coba buku panduan demo untuk menikmati pengalaman membaca 3D.
               </p>
               <button
                 onClick={() => handleLoadDemo()}
-                className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold shadow hover:bg-amber-600 transition-all active:scale-95"
+                className="mt-3 flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-md transition-all active:scale-95"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                }}
               >
                 <Sparkles className="w-4 h-4" />
                 Coba Buku Demo Sekarang

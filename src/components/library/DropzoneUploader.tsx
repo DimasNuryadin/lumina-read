@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { UploadCloud, AlertCircle } from 'lucide-react';
 import { parseBookFile } from '@/lib/parsers/bookParser';
 import { saveBook } from '@/lib/db';
 import type { Book } from '@/types/book';
@@ -34,13 +34,13 @@ export default function DropzoneUploader({ onBookAdded }: DropzoneUploaderProps)
       }
 
       try {
-        setStatusMessage(`Memproses ${file.name} (mengekstrak sampul & metadata)...`);
+        setStatusMessage(`Memproses ${file.name} (mengekstrak sampul & indeks)...`);
         const parsedBook = await parseBookFile(file);
         await saveBook(parsedBook);
         onBookAdded(parsedBook);
       } catch (err: any) {
         console.error('Gagal memproses file:', err);
-        setErrorMessage(`Gagal memuat "${file.name}": ${err?.message || 'Error tidak diketahui'}`);
+        setErrorMessage(`Gagal memuat "${file.name}": ${err?.message || 'Format tidak didukung'}`);
       }
     }
 
@@ -69,7 +69,6 @@ export default function DropzoneUploader({ onBookAdded }: DropzoneUploaderProps)
 
   return (
     <div className="w-full">
-      {/* Hidden native input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -79,50 +78,63 @@ export default function DropzoneUploader({ onBookAdded }: DropzoneUploaderProps)
         onChange={(e) => handleFiles(e.target.files)}
       />
 
-      {/* Drop zone container */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => !isProcessing && fileInputRef.current?.click()}
-        className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-8 transition-all duration-300 flex flex-col items-center justify-center text-center ${
+        className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-8 transition-all duration-200 flex flex-col items-center justify-center text-center ${
           isDragging
-            ? 'border-amber-500 bg-amber-500/10 scale-[1.01] shadow-lg'
-            : 'border-zinc-300 dark:border-zinc-750 hover:border-amber-500/60 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 bg-zinc-50/50 dark:bg-zinc-900/20'
+            ? 'scale-[1.01] shadow-md border-amber-600 bg-amber-500/10'
+            : 'hover:border-amber-600/70'
         }`}
+        style={{
+          backgroundColor: isDragging ? 'var(--accent-bg)' : 'var(--bg-surface)',
+          borderColor: isDragging ? 'var(--accent)' : 'var(--border-color)',
+        }}
       >
         {isProcessing ? (
           <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-3 border-amber-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              {statusMessage || 'Mengekstrak berkas...'}
+            <div
+              className="w-9 h-9 border-3 border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+            />
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {statusMessage || 'Menyiapkan berkas...'}
             </p>
-            <p className="text-xs text-zinc-400">Menyimpan langsung di memori browser lokal Anda</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Tersimpan langsung di memori lokal peramban Anda (Offline-First)
+            </p>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-1 transition-transform group-hover:scale-110">
+          <div className="flex flex-col items-center gap-2.5">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-xs transition-transform hover:scale-105"
+              style={{
+                backgroundColor: 'var(--bg-subtle)',
+                color: 'var(--accent)',
+              }}
+            >
               <UploadCloud className="w-6 h-6" />
             </div>
 
-            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-              Seret dan lepaskan berkas e-book ke sini, atau{' '}
-              <span className="text-amber-600 dark:text-amber-400 underline underline-offset-2">
-                pilih dari perangkat
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Seret dan lepaskan file e-book ke sini, atau{' '}
+              <span className="underline underline-offset-4 decoration-amber-500/60 font-bold hover:text-amber-600">
+                pilih berkas
               </span>
             </p>
 
-            <p className="text-xs text-zinc-400 max-w-sm">
-              Mendukung dokumen format <span className="font-semibold text-zinc-600 dark:text-zinc-300">PDF</span> dan{' '}
-              <span className="font-semibold text-zinc-600 dark:text-zinc-300">EPUB</span>. File Anda 100% tersimpan aman di browser tanpa diunggah ke server.
+            <p className="text-xs max-w-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+              Mendukung format <span className="font-bold" style={{ color: 'var(--text-secondary)' }}>PDF</span> dan{' '}
+              <span className="font-bold" style={{ color: 'var(--text-secondary)' }}>EPUB</span>. Berkas 100% diproses di perangkat lokal tanpa pernah diunggah ke server.
             </p>
           </div>
         )}
       </div>
 
-      {/* Error alert notice if any */}
       {errorMessage && (
-        <div className="mt-3 flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs">
+        <div className="mt-3 flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-medium">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <p>{errorMessage}</p>
         </div>

@@ -88,7 +88,7 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
       if (!ctx) return;
 
       const dpr = window.devicePixelRatio || 1;
-      const viewport = page.getViewport({ scale: scale * (window.innerWidth < 768 ? 0.8 : 1.1) });
+      const viewport = page.getViewport({ scale: scale * (window.innerWidth < 768 ? 0.8 : 1.15) });
 
       canvas.width = viewport.width * dpr;
       canvas.height = viewport.height * dpr;
@@ -120,7 +120,6 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
       if (onPageChange) {
         onPageChange(currentPage, totalPages);
       }
-      // Save progress to IndexedDB
       const progress = totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
       updateBookProgress(book.id, progress, currentPage);
     }
@@ -173,13 +172,15 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleNextPage, handlePrevPage]);
 
-  // Theme styling for canvas wrapper
+  // High contrast filters for razor-sharp readability
   const getThemeFilter = () => {
     if (settings.theme === 'sepia') {
-      return 'sepia(0.35) contrast(0.95) brightness(0.98)';
+      // Warm paper tint while boosting text contrast
+      return 'sepia(0.35) contrast(1.08) brightness(0.98)';
     }
     if (settings.theme === 'dark') {
-      return 'invert(0.88) hue-rotate(180deg) contrast(0.95) brightness(0.92)';
+      // Invert for night reading with crisp typography contrast
+      return 'invert(0.92) hue-rotate(180deg) contrast(1.15) brightness(0.95)';
     }
     return 'none';
   };
@@ -191,22 +192,32 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     >
       {isLoading ? (
         <div className="flex flex-col items-center gap-4 py-32 animate-pulse">
-          <div className="w-12 h-12 rounded-full border-4 border-amber-500 border-t-transparent animate-spin" />
-          <p className="text-sm font-medium opacity-70">Membuka dokumen PDF...</p>
+          <div
+            className="w-10 h-10 rounded-full border-3 border-t-transparent animate-spin"
+            style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+          />
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
+            Membuka dokumen PDF...
+          </p>
         </div>
       ) : (
         <div className="relative group flex items-center justify-center max-w-full">
-          {/* Previous Page Click Zone / Floating Button */}
+          {/* Previous Page Button */}
           <button
             onClick={handlePrevPage}
             disabled={currentPage <= 1 || isFlipping}
             aria-label="Halaman Sebelumnya"
-            className="hidden md:flex absolute left-[-60px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full items-center justify-center bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 backdrop-blur-md transition-all duration-200 disabled:opacity-20 disabled:pointer-events-none shadow-lg active:scale-95"
+            className="hidden md:flex absolute left-[-60px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
+            style={{
+              backgroundColor: 'var(--bg-surface-elevated)',
+              borderColor: 'var(--border-color)',
+              color: 'var(--text-primary)',
+            }}
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
 
-          {/* 3D Realistic Page Container with GPU acceleration */}
+          {/* 3D Page Container with GPU acceleration */}
           <div
             style={{
               perspective: '1500px',
@@ -217,72 +228,86 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
             <div
               style={{
                 filter: getThemeFilter(),
-                transition: settings.pageTurnAnimation === 'curl' 
-                  ? 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease' 
-                  : 'transform 0.25s ease-out, opacity 0.25s ease-out',
+                transition:
+                  settings.pageTurnAnimation === 'curl'
+                    ? 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease'
+                    : 'transform 0.25s ease-out, opacity 0.25s ease-out',
                 transform: isFlipping
                   ? settings.pageTurnAnimation === 'curl'
                     ? turnDirection === 'next'
-                      ? 'rotateY(-22deg) scale(0.98)'
-                      : 'rotateY(22deg) scale(0.98)'
+                      ? 'rotateY(-20deg) scale(0.98)'
+                      : 'rotateY(20deg) scale(0.98)'
                     : turnDirection === 'next'
-                      ? 'translateX(-15px) opacity(0.7)'
-                      : 'translateX(15px) opacity(0.7)'
+                    ? 'translateX(-15px) opacity(0.7)'
+                    : 'translateX(15px) opacity(0.7)'
                   : 'rotateY(0deg) scale(1) translateX(0)',
                 transformOrigin: turnDirection === 'next' ? 'left center' : 'right center',
                 willChange: 'transform, filter',
+                boxShadow: 'var(--book-shadow-hover)',
               }}
-              className="relative shadow-2xl rounded-sm overflow-hidden bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10"
+              className="relative rounded-sm overflow-hidden border bg-white"
             >
               {/* Paper Spine crease shadow */}
-              <div className="absolute inset-y-0 left-0 w-8 pointer-events-none bg-gradient-to-r from-black/15 via-black/5 to-transparent z-10" />
+              <div className="absolute inset-y-0 left-0 w-8 pointer-events-none bg-gradient-to-r from-black/20 via-black/5 to-transparent z-10" />
 
               {/* Render Canvas */}
               <canvas ref={canvasRef} className="block max-w-full h-auto cursor-pointer" onClick={handleNextPage} />
             </div>
           </div>
 
-          {/* Next Page Click Zone / Floating Button */}
+          {/* Next Page Button */}
           <button
             onClick={handleNextPage}
             disabled={currentPage >= totalPages || isFlipping}
             aria-label="Halaman Selanjutnya"
-            className="hidden md:flex absolute right-[-60px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full items-center justify-center bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 backdrop-blur-md transition-all duration-200 disabled:opacity-20 disabled:pointer-events-none shadow-lg active:scale-95"
+            className="hidden md:flex absolute right-[-60px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
+            style={{
+              backgroundColor: 'var(--bg-surface-elevated)',
+              borderColor: 'var(--border-color)',
+              color: 'var(--text-primary)',
+            }}
           >
             <ChevronRight className="w-6 h-6" />
           </button>
         </div>
       )}
 
-      {/* Floating Zoom & Quick Navigation Controls */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-black/10 dark:border-white/10 shadow-xl transition-all duration-300">
+      {/* Floating Bottom Navigation Bar */}
+      <div
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-2xl border shadow-xl backdrop-blur-md transition-all"
+        style={{
+          backgroundColor: 'var(--bg-surface-elevated)',
+          borderColor: 'var(--border-color)',
+          color: 'var(--text-primary)',
+        }}
+      >
         <button
           onClick={handlePrevPage}
           disabled={currentPage <= 1}
-          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30"
+          className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30"
           title="Sebelumnya"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
 
-        <span className="text-xs font-semibold px-2 min-w-[70px] text-center tracking-tight">
+        <span className="text-xs font-bold px-2 min-w-[70px] text-center tracking-tight" style={{ color: 'var(--text-primary)' }}>
           {currentPage} / {totalPages}
         </span>
 
         <button
           onClick={handleNextPage}
           disabled={currentPage >= totalPages}
-          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30"
+          className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30"
           title="Selanjutnya"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
 
-        <div className="h-4 w-[1px] bg-black/10 dark:bg-white/10 mx-1" />
+        <div className="h-4 w-[1px] mx-1" style={{ backgroundColor: 'var(--border-color)' }} />
 
         <button
           onClick={() => setScale((s) => Math.max(0.7, s - 0.15))}
-          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+          className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
           title="Perkecil"
         >
           <ZoomOut className="w-4 h-4" />
@@ -290,7 +315,7 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
 
         <button
           onClick={() => setScale(1.2)}
-          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+          className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
           title="Reset Zoom"
         >
           <RotateCcw className="w-3.5 h-3.5" />
@@ -298,7 +323,7 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
 
         <button
           onClick={() => setScale((s) => Math.min(2.2, s + 0.15))}
-          className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+          className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
           title="Perbesar"
         >
           <ZoomIn className="w-4 h-4" />

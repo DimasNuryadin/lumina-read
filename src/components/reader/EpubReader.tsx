@@ -23,28 +23,26 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
 
   const { settings, setCurrentCfi } = useReaderStore();
 
-  // Apply Theme & Font Styles to Epubjs Rendition
+  // Apply Theme & Font Styles with WCAG AAA Contrast
   const applyStyles = useCallback(() => {
     if (!renditionRef.current) return;
 
     const rendition = renditionRef.current;
 
-    // Theme backgrounds & text colors
-    let bgColor = '#ffffff';
-    let textColor = '#18181b';
+    let bgColor = '#FAF9F6';
+    let textColor = '#1C1917';
 
     if (settings.theme === 'sepia') {
-      bgColor = '#f7f2e4';
-      textColor = '#3d2e1e';
+      bgColor = '#F5EEDB';
+      textColor = '#261B11';
     } else if (settings.theme === 'dark') {
-      bgColor = '#121214';
-      textColor = '#d4d4d8';
+      bgColor = '#0C0C0E';
+      textColor = '#F4F4F5';
     }
 
-    // Font families
-    let fontFamily = 'Georgia, "Times New Roman", serif';
+    let fontFamily = '"Charter", "Bitstream Charter", "Iowan Old Style", Georgia, serif';
     if (settings.fontFamily === 'sans') {
-      fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     } else if (settings.fontFamily === 'mono') {
       fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
     }
@@ -55,20 +53,21 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
         color: `${textColor} !important`,
         'font-family': `${fontFamily} !important`,
         'font-size': `${settings.fontSize}px !important`,
-        'line-height': `${settings.lineHeight} !important`,
-        padding: '0 24px !important',
+        'line-height': `${settings.lineHeight || 1.75} !important`,
+        padding: '0 32px !important',
       },
       p: {
         'font-family': `${fontFamily} !important`,
-        'line-height': `${settings.lineHeight} !important`,
-        'margin-bottom': '1em !important',
+        'line-height': `${settings.lineHeight || 1.75} !important`,
+        'margin-bottom': '1.25em !important',
       },
       'h1, h2, h3, h4': {
         color: `${textColor} !important`,
         'font-family': `${fontFamily} !important`,
+        'font-weight': 'bold !important',
       },
       a: {
-        color: settings.theme === 'dark' ? '#38bdf8 !important' : '#0284c7 !important',
+        color: settings.theme === 'dark' ? '#FBBF24 !important' : '#B45309 !important',
       },
     });
   }, [settings]);
@@ -87,12 +86,10 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
         const epubBook = ePub(arrayBuffer);
         bookInstanceRef.current = epubBook;
 
-        // Generate locations for accurate progress calculation
         epubBook.ready.then(() => {
           return epubBook.locations.generate(1024);
         });
 
-        // Load Table of Contents
         epubBook.loaded.navigation.then((nav: any) => {
           if (isMounted && onTocLoaded && nav.toc) {
             const formattedToc: TableOfContentsItem[] = nav.toc.map((item: any) => ({
@@ -114,10 +111,10 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
 
           renditionRef.current = rendition;
 
-          // Display last saved location if available
-          const startLocation = typeof book.currentLocation === 'string' && book.currentLocation.length > 0 
-            ? book.currentLocation 
-            : undefined;
+          const startLocation =
+            typeof book.currentLocation === 'string' && book.currentLocation.length > 0
+              ? book.currentLocation
+              : undefined;
 
           rendition.display(startLocation).then(() => {
             if (isMounted) {
@@ -126,7 +123,6 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
             }
           });
 
-          // Relocate event listener for progress tracking
           rendition.on('relocated', (location: any) => {
             if (!isMounted) return;
             const cfi = location.start.cfi;
@@ -142,7 +138,6 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
               onLocationChange(progress, cfi);
             }
 
-            // Auto-save to IndexedDB
             updateBookProgress(book.id, progress, cfi);
           });
         }
@@ -166,12 +161,10 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
     };
   }, [book, onTocLoaded, onLocationChange, setCurrentCfi, applyStyles]);
 
-  // Re-apply styles whenever settings change
   useEffect(() => {
     applyStyles();
   }, [applyStyles]);
 
-  // Handlers for next / previous page
   const handleNext = useCallback(() => {
     if (renditionRef.current) {
       if (settings.soundEffects) playPageTurnSound();
@@ -206,18 +199,27 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
     <div className="relative flex flex-col items-center justify-center w-full min-h-[calc(100vh-80px)] select-none">
       {isLoading && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-inherit animate-pulse">
-          <div className="w-12 h-12 rounded-full border-4 border-amber-500 border-t-transparent animate-spin" />
-          <p className="text-sm font-medium opacity-70">Menyiapkan halaman e-book...</p>
+          <div
+            className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin"
+            style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+          />
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
+            Menyiapkan halaman e-book...
+          </p>
         </div>
       )}
 
       {/* Reader Container */}
       <div className="relative w-full max-w-3xl h-[82vh] mx-auto px-4 sm:px-8 py-4 flex items-center justify-center">
-        {/* Navigation Floating Buttons */}
         <button
           onClick={handlePrev}
           aria-label="Sebelumnya"
-          className="hidden md:flex absolute -left-12 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full items-center justify-center bg-black/5 dark:bg-white/10 hover:bg-black/15 dark:hover:bg-white/20 backdrop-blur-md transition-all active:scale-95 shadow-md"
+          className="hidden md:flex absolute -left-12 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-2xl items-center justify-center border shadow-md transition-all active:scale-95"
+          style={{
+            backgroundColor: 'var(--bg-surface-elevated)',
+            borderColor: 'var(--border-color)',
+            color: 'var(--text-primary)',
+          }}
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
@@ -225,30 +227,43 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
         {/* EPUB iframe container */}
         <div
           ref={viewerRef}
-          className="w-full h-full rounded-lg shadow-xl overflow-hidden transition-all duration-300"
+          className="w-full h-full rounded-xl border shadow-xl overflow-hidden transition-all duration-300"
           style={{
             backgroundColor:
               settings.theme === 'sepia'
-                ? '#f7f2e4'
+                ? '#F5EEDB'
                 : settings.theme === 'dark'
-                ? '#121214'
-                : '#ffffff',
+                ? '#0C0C0E'
+                : '#FAF9F6',
+            borderColor: 'var(--border-color)',
           }}
         />
 
         <button
           onClick={handleNext}
           aria-label="Selanjutnya"
-          className="hidden md:flex absolute -right-12 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full items-center justify-center bg-black/5 dark:bg-white/10 hover:bg-black/15 dark:hover:bg-white/20 backdrop-blur-md transition-all active:scale-95 shadow-md"
+          className="hidden md:flex absolute -right-12 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-2xl items-center justify-center border shadow-md transition-all active:scale-95"
+          style={{
+            backgroundColor: 'var(--bg-surface-elevated)',
+            borderColor: 'var(--border-color)',
+            color: 'var(--text-primary)',
+          }}
         >
           <ChevronRight className="w-6 h-6" />
         </button>
       </div>
 
-      {/* Bottom Progress Bar */}
-      <div className="fixed bottom-4 z-20 flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/70 dark:bg-zinc-900/70 backdrop-blur-lg border border-black/5 dark:border-white/10 text-xs font-medium shadow-md">
-        <span>Progres Membaca:</span>
-        <span className="font-semibold text-amber-600 dark:text-amber-400">{currentProgress}%</span>
+      {/* Bottom Progress Indicator */}
+      <div
+        className="fixed bottom-4 z-20 flex items-center gap-2.5 px-4 py-2 rounded-2xl border text-xs font-bold shadow-md"
+        style={{
+          backgroundColor: 'var(--bg-surface-elevated)',
+          borderColor: 'var(--border-color)',
+          color: 'var(--text-primary)',
+        }}
+      >
+        <span style={{ color: 'var(--text-muted)' }}>Progres:</span>
+        <span style={{ color: 'var(--accent)' }}>{currentProgress}%</span>
       </div>
     </div>
   );

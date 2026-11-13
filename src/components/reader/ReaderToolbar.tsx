@@ -14,7 +14,6 @@ import {
   Coffee,
   Volume2,
   VolumeX,
-  Type,
   Minimize2,
   Maximize2,
   Trash2,
@@ -44,7 +43,6 @@ export default function ReaderToolbar({
     toggleSoundEffects,
     toggleZenMode,
     currentPage,
-    totalPages,
     isSidebarOpen,
     setSidebarOpen,
     activeSidebarTab,
@@ -65,7 +63,7 @@ export default function ReaderToolbar({
     refreshBookmarks();
   }, [refreshBookmarks]);
 
-  // Check if current location is bookmarked
+  // Check if current page is bookmarked
   useEffect(() => {
     const isSaved = bookmarks.some((b) => b.location === currentPage);
     setIsBookmarkedCurrent(isSaved);
@@ -121,32 +119,54 @@ export default function ReaderToolbar({
 
   return (
     <>
-      {/* Top Floating Glass Navigation Header */}
+      {/* Top Floating Navigation Header */}
       <header
         className={`fixed top-0 inset-x-0 z-40 transition-all duration-300 ${
           isControlsVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           {/* Back button & Title */}
           <div className="flex items-center gap-3">
             <button
               onClick={onBackToLibrary}
               aria-label="Kembali ke Rak Buku"
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-sm hover:scale-105 active:scale-95 transition-all text-sm font-medium"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border shadow-sm transition-all active:scale-95 text-xs font-bold"
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderColor: 'var(--border-color)',
+                color: 'var(--text-primary)',
+              }}
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Perpustakaan</span>
             </button>
 
             <div className="flex flex-col max-w-[200px] sm:max-w-md truncate">
-              <span className="text-sm font-semibold truncate tracking-tight">{book.title}</span>
-              <span className="text-xs opacity-60 truncate">{book.author}</span>
+              <span
+                className="text-sm font-editorial font-bold truncate leading-tight"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {book.title}
+              </span>
+              <span
+                className="text-xs truncate font-medium"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {book.author}
+              </span>
             </div>
           </div>
 
           {/* Action Toolbar */}
-          <div className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-sm">
+          <div
+            className="flex items-center gap-1 sm:gap-2 px-2.5 py-1.5 rounded-2xl border shadow-sm"
+            style={{
+              backgroundColor: 'var(--bg-surface)',
+              borderColor: 'var(--border-color)',
+              color: 'var(--text-primary)',
+            }}
+          >
             {/* Table of contents button */}
             <button
               onClick={() => {
@@ -154,7 +174,7 @@ export default function ReaderToolbar({
                 setSidebarOpen(true);
               }}
               title="Daftar Isi"
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             >
               <List className="w-4 h-4" />
             </button>
@@ -163,25 +183,33 @@ export default function ReaderToolbar({
             <button
               onClick={handleToggleBookmark}
               title={isBookmarkedCurrent ? 'Hapus Bookmark' : 'Tambah Bookmark'}
-              className={`p-2 rounded-full transition-colors ${
-                isBookmarkedCurrent
-                  ? 'text-amber-500 fill-amber-500 bg-amber-500/10'
-                  : 'hover:bg-black/5 dark:hover:bg-white/10'
-              }`}
+              className="p-2 rounded-xl transition-all"
+              style={{
+                color: isBookmarkedCurrent ? 'var(--accent)' : 'inherit',
+                backgroundColor: isBookmarkedCurrent ? 'var(--accent-bg)' : 'transparent',
+              }}
             >
               <BookmarkIcon className={`w-4 h-4 ${isBookmarkedCurrent ? 'fill-current' : ''}`} />
             </button>
 
-            {/* Bookmark list drawer */}
+            {/* Bookmark list badge button */}
             <button
               onClick={() => {
                 setActiveSidebarTab('bookmarks');
                 setSidebarOpen(true);
               }}
               title="Daftar Bookmark"
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-xs font-semibold"
+              className="p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-xs font-bold flex items-center gap-1"
             >
-              <span className="text-[11px] px-1 bg-black/10 dark:bg-white/10 rounded-full">{bookmarks.length}</span>
+              <span
+                className="px-2 py-0.5 rounded-full text-[11px] font-bold"
+                style={{
+                  backgroundColor: 'var(--bg-subtle)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {bookmarks.length}
+              </span>
             </button>
 
             {/* Settings button */}
@@ -191,7 +219,7 @@ export default function ReaderToolbar({
                 setSidebarOpen(true);
               }}
               title="Pengaturan Tampilan"
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -200,9 +228,11 @@ export default function ReaderToolbar({
             <button
               onClick={toggleZenMode}
               title={settings.zenMode ? 'Keluar dari Zen Mode' : 'Aktifkan Zen Mode (Bebas Distraksi)'}
-              className={`p-2 rounded-full transition-colors ${
-                settings.zenMode ? 'text-amber-500 bg-amber-500/15' : 'hover:bg-black/5 dark:hover:bg-white/10'
-              }`}
+              className="p-2 rounded-xl transition-all"
+              style={{
+                color: settings.zenMode ? 'var(--accent)' : 'inherit',
+                backgroundColor: settings.zenMode ? 'var(--accent-bg)' : 'transparent',
+              }}
             >
               {settings.zenMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
@@ -210,43 +240,52 @@ export default function ReaderToolbar({
         </div>
       </header>
 
-      {/* Slide-out Sidebar Drawer for TOC, Bookmarks, and Settings */}
+      {/* Slide-out Sidebar Drawer */}
       {isSidebarOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+        <div
+          data-theme={settings.theme}
+          className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs transition-opacity duration-200"
+          onClick={() => setSidebarOpen(false)}
+        >
           <div
-            className="w-full max-w-sm sm:max-w-md h-full bg-white dark:bg-zinc-900 border-l border-black/10 dark:border-white/10 p-6 flex flex-col shadow-2xl animate-in slide-in-from-right duration-300"
+            className="w-full max-w-sm sm:max-w-md h-full border-l p-6 flex flex-col shadow-2xl transition-all"
+            style={{
+              backgroundColor: 'var(--bg-surface-elevated)',
+              borderColor: 'var(--border-color)',
+              color: 'var(--text-primary)',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-black/10 dark:border-white/10">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-1.5 p-1 rounded-xl" style={{ backgroundColor: 'var(--bg-subtle)' }}>
                 <button
                   onClick={() => setActiveSidebarTab('toc')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    activeSidebarTab === 'toc'
-                      ? 'bg-amber-500 text-white shadow-sm'
-                      : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'
-                  }`}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    backgroundColor: activeSidebarTab === 'toc' ? 'var(--accent)' : 'transparent',
+                    color: activeSidebarTab === 'toc' ? '#ffffff' : 'var(--text-secondary)',
+                  }}
                 >
                   Daftar Isi
                 </button>
                 <button
                   onClick={() => setActiveSidebarTab('bookmarks')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    activeSidebarTab === 'bookmarks'
-                      ? 'bg-amber-500 text-white shadow-sm'
-                      : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'
-                  }`}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    backgroundColor: activeSidebarTab === 'bookmarks' ? 'var(--accent)' : 'transparent',
+                    color: activeSidebarTab === 'bookmarks' ? '#ffffff' : 'var(--text-secondary)',
+                  }}
                 >
                   Bookmark ({bookmarks.length})
                 </button>
                 <button
                   onClick={() => setActiveSidebarTab('settings')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    activeSidebarTab === 'settings'
-                      ? 'bg-amber-500 text-white shadow-sm'
-                      : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'
-                  }`}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    backgroundColor: activeSidebarTab === 'settings' ? 'var(--accent)' : 'transparent',
+                    color: activeSidebarTab === 'settings' ? '#ffffff' : 'var(--text-secondary)',
+                  }}
                 >
                   Pengaturan
                 </button>
@@ -254,14 +293,15 @@ export default function ReaderToolbar({
 
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                className="p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"
+                style={{ color: 'var(--text-secondary)' }}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Drawer Body */}
-            <div className="flex-1 overflow-y-auto py-4">
+            <div className="flex-1 overflow-y-auto py-5">
               {/* TAB 1: Table of Contents */}
               {activeSidebarTab === 'toc' && (
                 <div className="space-y-1">
@@ -273,13 +313,14 @@ export default function ReaderToolbar({
                           if (onSelectTocItem) onSelectTocItem(item.href);
                           setSidebarOpen(false);
                         }}
-                        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-sm font-medium transition-colors line-clamp-2"
+                        className="w-full text-left px-3.5 py-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-sm font-medium transition-colors line-clamp-2"
+                        style={{ color: 'var(--text-primary)' }}
                       >
                         {item.label}
                       </button>
                     ))
                   ) : (
-                    <div className="text-center py-16 opacity-60 text-sm">
+                    <div className="text-center py-16 text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
                       Daftar isi tidak tersedia pada dokumen ini.
                     </div>
                   )}
@@ -293,11 +334,17 @@ export default function ReaderToolbar({
                     bookmarks.map((bm) => (
                       <div
                         key={bm.id}
-                        className="flex items-center justify-between p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                        className="flex items-center justify-between p-3.5 rounded-xl border transition-colors"
+                        style={{
+                          backgroundColor: 'var(--bg-subtle)',
+                          borderColor: 'var(--border-color)',
+                        }}
                       >
                         <div>
-                          <p className="text-sm font-semibold">{bm.title}</p>
-                          <p className="text-xs opacity-60">
+                          <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                            {bm.title}
+                          </p>
+                          <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>
                             {new Date(bm.createdAt).toLocaleDateString('id-ID', {
                               day: 'numeric',
                               month: 'short',
@@ -310,7 +357,7 @@ export default function ReaderToolbar({
                             await removeBookmark(bm.id);
                             refreshBookmarks();
                           }}
-                          className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
+                          className="p-2 rounded-lg hover:bg-red-500/10 text-red-600 transition-colors"
                           title="Hapus bookmark"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -318,9 +365,11 @@ export default function ReaderToolbar({
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-16 opacity-60 text-sm space-y-2">
+                    <div className="text-center py-16 text-sm space-y-2" style={{ color: 'var(--text-muted)' }}>
                       <BookmarkIcon className="w-8 h-8 mx-auto opacity-40" />
-                      <p>Belum ada bookmark yang disimpan.</p>
+                      <p className="font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                        Belum ada bookmark yang disimpan.
+                      </p>
                       <p className="text-xs">Klik tombol bookmark di bilah atas untuk menandai halaman.</p>
                     </div>
                   )}
@@ -332,41 +381,47 @@ export default function ReaderToolbar({
                 <div className="space-y-6">
                   {/* Theme Mode Selector */}
                   <div>
-                    <label className="text-xs font-semibold tracking-wider uppercase opacity-60 mb-2 block">
-                      Tema Tampilan
+                    <label
+                      className="text-xs font-bold tracking-wider uppercase mb-2.5 block"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      Pilihan Tema Membaca
                     </label>
                     <div className="grid grid-cols-3 gap-2">
                       <button
                         onClick={() => setTheme('light')}
-                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all ${
-                          settings.theme === 'light'
-                            ? 'border-amber-500 bg-amber-500/10 text-amber-600'
-                            : 'border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: settings.theme === 'light' ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: settings.theme === 'light' ? 'var(--accent)' : 'var(--border-color)',
+                          color: settings.theme === 'light' ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
                       >
-                        <Sun className="w-5 h-5 text-amber-500" />
+                        <Sun className="w-5 h-5 text-amber-600" />
                         Light
                       </button>
 
                       <button
                         onClick={() => setTheme('sepia')}
-                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all ${
-                          settings.theme === 'sepia'
-                            ? 'border-amber-600 bg-amber-600/15 text-amber-800 dark:text-amber-300'
-                            : 'border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: settings.theme === 'sepia' ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: settings.theme === 'sepia' ? 'var(--accent)' : 'var(--border-color)',
+                          color: settings.theme === 'sepia' ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
                       >
-                        <Coffee className="w-5 h-5 text-amber-700" />
-                        Sepia Warm
+                        <Coffee className="w-5 h-5 text-amber-800" />
+                        Sepia
                       </button>
 
                       <button
                         onClick={() => setTheme('dark')}
-                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all ${
-                          settings.theme === 'dark'
-                            ? 'border-amber-500 bg-amber-500/10 text-amber-400'
-                            : 'border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: settings.theme === 'dark' ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: settings.theme === 'dark' ? 'var(--accent)' : 'var(--border-color)',
+                          color: settings.theme === 'dark' ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
                       >
                         <Moon className="w-5 h-5 text-indigo-400" />
                         Midnight
@@ -377,15 +432,25 @@ export default function ReaderToolbar({
                   {/* Font Size Selector */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-semibold tracking-wider uppercase opacity-60">
-                        Ukuran Teks
+                      <label
+                        className="text-xs font-bold tracking-wider uppercase"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        Ukuran Huruf
                       </label>
-                      <span className="text-xs font-bold">{settings.fontSize}px</span>
+                      <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                        {settings.fontSize}px
+                      </span>
                     </div>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => setFontSize(Math.max(12, settings.fontSize - 2))}
-                        className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 hover:bg-black/5 text-xs font-bold"
+                        className="px-3.5 py-1.5 rounded-lg border text-xs font-bold shadow-xs active:scale-95"
+                        style={{
+                          backgroundColor: 'var(--bg-subtle)',
+                          borderColor: 'var(--border-color)',
+                          color: 'var(--text-primary)',
+                        }}
                       >
                         A-
                       </button>
@@ -395,11 +460,16 @@ export default function ReaderToolbar({
                         max="28"
                         value={settings.fontSize}
                         onChange={(e) => setFontSize(Number(e.target.value))}
-                        className="w-full accent-amber-500 cursor-pointer"
+                        className="w-full accent-amber-600 cursor-pointer"
                       />
                       <button
                         onClick={() => setFontSize(Math.min(28, settings.fontSize + 2))}
-                        className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 hover:bg-black/5 text-base font-bold"
+                        className="px-3.5 py-1.5 rounded-lg border text-base font-bold shadow-xs active:scale-95"
+                        style={{
+                          backgroundColor: 'var(--bg-subtle)',
+                          borderColor: 'var(--border-color)',
+                          color: 'var(--text-primary)',
+                        }}
                       >
                         A+
                       </button>
@@ -408,37 +478,43 @@ export default function ReaderToolbar({
 
                   {/* Font Family Selector */}
                   <div>
-                    <label className="text-xs font-semibold tracking-wider uppercase opacity-60 mb-2 block">
-                      Gaya Font
+                    <label
+                      className="text-xs font-bold tracking-wider uppercase mb-2 block"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      Keluarga Font
                     </label>
                     <div className="grid grid-cols-3 gap-2">
                       <button
                         onClick={() => setFontFamily('serif')}
-                        className={`p-2.5 rounded-xl border text-xs font-serif font-medium transition-all ${
-                          settings.fontFamily === 'serif'
-                            ? 'border-amber-500 bg-amber-500/10 font-bold'
-                            : 'border-black/10 dark:border-white/10'
-                        }`}
+                        className="p-2.5 rounded-xl border text-xs font-serif font-bold transition-all"
+                        style={{
+                          backgroundColor: settings.fontFamily === 'serif' ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: settings.fontFamily === 'serif' ? 'var(--accent)' : 'var(--border-color)',
+                          color: settings.fontFamily === 'serif' ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
                       >
-                        Serif (Buku)
+                        Serif (Novel)
                       </button>
                       <button
                         onClick={() => setFontFamily('sans')}
-                        className={`p-2.5 rounded-xl border text-xs font-sans font-medium transition-all ${
-                          settings.fontFamily === 'sans'
-                            ? 'border-amber-500 bg-amber-500/10 font-bold'
-                            : 'border-black/10 dark:border-white/10'
-                        }`}
+                        className="p-2.5 rounded-xl border text-xs font-sans font-bold transition-all"
+                        style={{
+                          backgroundColor: settings.fontFamily === 'sans' ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: settings.fontFamily === 'sans' ? 'var(--accent)' : 'var(--border-color)',
+                          color: settings.fontFamily === 'sans' ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
                       >
-                        Modern Sans
+                        Sans-Serif
                       </button>
                       <button
                         onClick={() => setFontFamily('mono')}
-                        className={`p-2.5 rounded-xl border text-xs font-mono font-medium transition-all ${
-                          settings.fontFamily === 'mono'
-                            ? 'border-amber-500 bg-amber-500/10 font-bold'
-                            : 'border-black/10 dark:border-white/10'
-                        }`}
+                        className="p-2.5 rounded-xl border text-xs font-mono font-bold transition-all"
+                        style={{
+                          backgroundColor: settings.fontFamily === 'mono' ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: settings.fontFamily === 'mono' ? 'var(--accent)' : 'var(--border-color)',
+                          color: settings.fontFamily === 'mono' ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
                       >
                         Monospace
                       </button>
@@ -447,38 +523,44 @@ export default function ReaderToolbar({
 
                   {/* Page Turn Animation Style */}
                   <div>
-                    <label className="text-xs font-semibold tracking-wider uppercase opacity-60 mb-2 block flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      Efek Balik Halaman
+                    <label
+                      className="text-xs font-bold tracking-wider uppercase mb-2 block flex items-center gap-1.5"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                      Efek Balik Lembaran
                     </label>
                     <div className="grid grid-cols-3 gap-2">
                       <button
                         onClick={() => setPageTurnAnimation('curl')}
-                        className={`p-2.5 rounded-xl border text-xs font-medium transition-all ${
-                          settings.pageTurnAnimation === 'curl'
-                            ? 'border-amber-500 bg-amber-500/10 font-bold'
-                            : 'border-black/10 dark:border-white/10'
-                        }`}
+                        className="p-2.5 rounded-xl border text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: settings.pageTurnAnimation === 'curl' ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: settings.pageTurnAnimation === 'curl' ? 'var(--accent)' : 'var(--border-color)',
+                          color: settings.pageTurnAnimation === 'curl' ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
                       >
                         3D Realistic
                       </button>
                       <button
                         onClick={() => setPageTurnAnimation('slide')}
-                        className={`p-2.5 rounded-xl border text-xs font-medium transition-all ${
-                          settings.pageTurnAnimation === 'slide'
-                            ? 'border-amber-500 bg-amber-500/10 font-bold'
-                            : 'border-black/10 dark:border-white/10'
-                        }`}
+                        className="p-2.5 rounded-xl border text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: settings.pageTurnAnimation === 'slide' ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: settings.pageTurnAnimation === 'slide' ? 'var(--accent)' : 'var(--border-color)',
+                          color: settings.pageTurnAnimation === 'slide' ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
                       >
-                        Smooth Slide
+                        Slide
                       </button>
                       <button
                         onClick={() => setPageTurnAnimation('none')}
-                        className={`p-2.5 rounded-xl border text-xs font-medium transition-all ${
-                          settings.pageTurnAnimation === 'none'
-                            ? 'border-amber-500 bg-amber-500/10 font-bold'
-                            : 'border-black/10 dark:border-white/10'
-                        }`}
+                        className="p-2.5 rounded-xl border text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: settings.pageTurnAnimation === 'none' ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: settings.pageTurnAnimation === 'none' ? 'var(--accent)' : 'var(--border-color)',
+                          color: settings.pageTurnAnimation === 'none' ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
                       >
                         Instan
                       </button>
@@ -486,18 +568,23 @@ export default function ReaderToolbar({
                   </div>
 
                   {/* Sound Effect Toggle */}
-                  <div className="pt-2 border-t border-black/10 dark:border-white/10 flex items-center justify-between">
+                  <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
                     <div>
-                      <p className="text-sm font-semibold">Efek Suara Kertas</p>
-                      <p className="text-xs opacity-60">Suara lembut saat membalik halaman fisik</p>
+                      <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                        Suara Lembaran Kertas
+                      </p>
+                      <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                        Efek desiran kertas halus saat membalik halaman
+                      </p>
                     </div>
                     <button
                       onClick={toggleSoundEffects}
-                      className={`p-2.5 rounded-full border transition-all ${
-                        settings.soundEffects
-                          ? 'border-amber-500 bg-amber-500/10 text-amber-500'
-                          : 'border-black/10 opacity-50'
-                      }`}
+                      className="p-2.5 rounded-xl border transition-all"
+                      style={{
+                        backgroundColor: settings.soundEffects ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                        borderColor: settings.soundEffects ? 'var(--accent)' : 'var(--border-color)',
+                        color: settings.soundEffects ? 'var(--accent)' : 'var(--text-muted)',
+                      }}
                     >
                       {settings.soundEffects ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
                     </button>
