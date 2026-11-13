@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { UploadCloud, AlertCircle } from 'lucide-react';
 import { parseBookFile } from '@/lib/parsers/bookParser';
 import { saveBook } from '@/lib/db';
+import { goeyToast } from 'goey-toast';
 import type { Book } from '@/types/book';
 
 interface DropzoneUploaderProps {
@@ -29,7 +30,9 @@ export default function DropzoneUploader({ onBookAdded }: DropzoneUploaderProps)
       const extension = file.name.split('.').pop()?.toLowerCase();
 
       if (extension !== 'pdf' && extension !== 'epub') {
-        setErrorMessage(`File "${file.name}" dilewati: Format harus berupa PDF atau EPUB.`);
+        goeyToast.error('Format Tidak Didukung', {
+          description: `Berkas "${file.name}" dilewati. Harap gunakan format PDF atau EPUB.`,
+        });
         continue;
       }
 
@@ -38,9 +41,15 @@ export default function DropzoneUploader({ onBookAdded }: DropzoneUploaderProps)
         const parsedBook = await parseBookFile(file);
         await saveBook(parsedBook);
         onBookAdded(parsedBook);
+        goeyToast.success('Buku Ditambahkan!', {
+          description: `"${parsedBook.title}" berhasil dimuat ke rak buku.`,
+          showProgress: true,
+        });
       } catch (err: any) {
         console.error('Gagal memproses file:', err);
-        setErrorMessage(`Gagal memuat "${file.name}": ${err?.message || 'Format tidak didukung'}`);
+        goeyToast.error('Gagal Memproses Berkas', {
+          description: `"${file.name}": ${err?.message || 'Format tidak didukung'}`,
+        });
       }
     }
 

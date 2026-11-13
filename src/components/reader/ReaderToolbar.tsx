@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import type { Book, Bookmark, TableOfContentsItem } from '@/types/book';
 import { useReaderStore } from '@/lib/store/useReaderStore';
 import { addBookmark, getBookmarksByBookId, removeBookmark } from '@/lib/db';
+import { goeyToast } from 'goey-toast';
 import {
   ArrowLeft,
   Settings,
@@ -77,6 +78,9 @@ export default function ReaderToolbar({
     const existing = bookmarks.find((b) => b.location === currentPage);
     if (existing) {
       await removeBookmark(existing.id);
+      goeyToast.info('Bookmark Dihapus', {
+        description: `Tanda halaman ${currentPage} telah dihapus.`,
+      });
     } else {
       const newBookmark: Bookmark = {
         id: 'bm-' + Date.now(),
@@ -86,6 +90,10 @@ export default function ReaderToolbar({
         createdAt: Date.now(),
       };
       await addBookmark(newBookmark);
+      goeyToast.success('Bookmark Ditambahkan!', {
+        description: `Halaman ${currentPage} tersimpan di penanda buku.`,
+        showProgress: true,
+      });
     }
     refreshBookmarks();
   };
@@ -93,11 +101,16 @@ export default function ReaderToolbar({
   const handleToggleZen = () => {
     if (!settings.zenMode) {
       toggleZenMode();
+      goeyToast('Zen Mode Diaktifkan', {
+        description: 'Layar bebas gangguan. Tekan Esc untuk keluar.',
+        showProgress: true,
+      });
       if (typeof document !== 'undefined' && document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(() => {});
       }
     } else {
       toggleZenMode();
+      goeyToast.info('Keluar dari Zen Mode');
       if (typeof document !== 'undefined' && document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
       }

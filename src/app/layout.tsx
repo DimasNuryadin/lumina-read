@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
+import ToasterProvider from '@/components/ToasterProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default function RootLayout({
     <html lang="id" suppressHydrationWarning>
       <body className="antialiased min-h-screen select-none font-sans">
         <ServiceWorkerRegister />
+        <ToasterProvider />
         {children}
       </body>
     </html>

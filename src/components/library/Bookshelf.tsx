@@ -7,6 +7,7 @@ import DropzoneUploader from './DropzoneUploader';
 import { createDemoBook } from '@/lib/demo/sampleBook';
 import { saveBook, deleteBook, updateBookProgress } from '@/lib/db';
 import { useReaderStore } from '@/lib/store/useReaderStore';
+import { goeyToast } from 'goey-toast';
 import {
   BookOpen,
   Search,
@@ -72,20 +73,36 @@ export default function Bookshelf({ books, onOpenBook, onRefreshBooks }: Bookshe
     const demo = createDemoBook();
     await saveBook(demo);
     onRefreshBooks();
+    goeyToast.success('Buku demo berhasil ditambahkan!', {
+      description: 'Panduan Membaca LuminaRead telah ada di rak buku Anda.',
+      showProgress: true,
+    });
   };
 
-  // Delete Book handler
-  const handleDeleteBook = async (id: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus buku ini dari rak lokal Anda?')) {
-      await deleteBook(id);
-      onRefreshBooks();
-    }
+  // Delete Book handler with Goey Toast action confirmation
+  const handleDeleteBook = (id: string, title: string) => {
+    goeyToast.warning(`Hapus "${title}" dari rak?`, {
+      description: 'File buku dan posisi bacaan akan dihapus dari penyimpanan lokal.',
+      showProgress: true,
+      action: {
+        label: 'Hapus Sekarang',
+        onClick: async () => {
+          await deleteBook(id);
+          onRefreshBooks();
+          goeyToast.success(`"${title}" berhasil dihapus.`);
+        },
+      },
+    });
   };
 
-  // Reset Progress handler
-  const handleResetProgress = async (id: string) => {
+  // Reset Progress handler with Goey Toast feedback
+  const handleResetProgress = async (id: string, title: string) => {
     await updateBookProgress(id, 0, 1);
     onRefreshBooks();
+    goeyToast.info(`Progres dibatalkan`, {
+      description: `Buku "${title}" direset kembali ke halaman pertama.`,
+      showProgress: true,
+    });
   };
 
   return (
@@ -361,8 +378,8 @@ export default function Bookshelf({ books, onOpenBook, onRefreshBooks }: Bookshe
                   key={book.id}
                   book={book}
                   onOpen={onOpenBook}
-                  onDelete={handleDeleteBook}
-                  onResetProgress={handleResetProgress}
+                  onDelete={(id) => handleDeleteBook(id, book.title)}
+                  onResetProgress={(id) => handleResetProgress(id, book.title)}
                 />
               ))}
             </div>
