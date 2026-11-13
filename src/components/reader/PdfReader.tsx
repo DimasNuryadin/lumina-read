@@ -5,7 +5,15 @@ import type { Book } from '@/types/book';
 import { updateBookProgress } from '@/lib/db';
 import { useReaderStore } from '@/lib/store/useReaderStore';
 import { playPageTurnSound } from '@/lib/audio/soundEffects';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Lamp,
+  Moon,
+} from 'lucide-react';
 
 interface PdfReaderProps {
   book: Book;
@@ -20,15 +28,24 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
   const onPageChangeRef = useRef(onPageChange);
   onPageChangeRef.current = onPageChange;
 
-  const initialPage = typeof book.currentLocation === 'number' && book.currentLocation > 0 ? book.currentLocation : 1;
+  const initialPage =
+    typeof book.currentLocation === 'number' && book.currentLocation > 0
+      ? book.currentLocation
+      : 1;
+
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [totalPages, setTotalPages] = useState<number>(book.totalLocations || 1);
-  const [scale, setScale] = useState<number>(1.2);
+  const [scale, setScale] = useState<number>(1.15);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [turnDirection, setTurnDirection] = useState<'next' | 'prev' | null>(null);
   const [isFlipping, setIsFlipping] = useState<boolean>(false);
 
-  const { settings, setTotalPages: setStoreTotalPages, setCurrentPage: setStoreCurrentPage } = useReaderStore();
+  const {
+    settings,
+    setPdfDarkModeStyle,
+    setTotalPages: setStoreTotalPages,
+    setCurrentPage: setStoreCurrentPage,
+  } = useReaderStore();
 
   // Load PDF Document
   useEffect(() => {
@@ -81,60 +98,63 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
   }, [book, setStoreTotalPages]);
 
   // Render current page to Canvas with HiDPI support
-  const renderPage = useCallback(async (pageNum: number) => {
-    if (!pdfDocRef.current || !canvasRef.current) return;
+  const renderPage = useCallback(
+    async (pageNum: number) => {
+      if (!pdfDocRef.current || !canvasRef.current) return;
 
-    if (renderTaskRef.current) {
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch (e) {
+          console.debug(e);
+        }
+        renderTaskRef.current = null;
+      }
+
       try {
-        renderTaskRef.current.cancel();
-      } catch (e) {
-        console.debug(e);
+        const page = await pdfDocRef.current.getPage(pageNum);
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const viewport = page.getViewport({
+          scale: scale * (window.innerWidth < 768 ? 0.8 : 1.15),
+        });
+
+        canvas.width = viewport.width * dpr;
+        canvas.height = viewport.height * dpr;
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const renderContext = {
+          canvasContext: ctx,
+          viewport: viewport,
+        };
+
+        const task = page.render(renderContext);
+        renderTaskRef.current = task;
+        await task.promise;
+        renderTaskRef.current = null;
+      } catch (err: any) {
+        if (err?.name !== 'RenderingCancelledException') {
+          console.error('PDF Page render error:', err);
+        }
       }
-      renderTaskRef.current = null;
-    }
+    },
+    [scale]
+  );
 
-    try {
-      const page = await pdfDocRef.current.getPage(pageNum);
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      const dpr = window.devicePixelRatio || 1;
-      const viewport = page.getViewport({ scale: scale * (window.innerWidth < 768 ? 0.8 : 1.15) });
-
-      canvas.width = viewport.width * dpr;
-      canvas.height = viewport.height * dpr;
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      const renderContext = {
-        canvasContext: ctx,
-        viewport: viewport,
-      };
-
-      const task = page.render(renderContext);
-      renderTaskRef.current = task;
-      await task.promise;
-      renderTaskRef.current = null;
-    } catch (err: any) {
-      if (err?.name !== 'RenderingCancelledException') {
-        console.error('PDF Page render error:', err);
-      }
-    }
-  }, [scale]);
-
-  // Effect to render canvas whenever currentPage or scale changes (independent of store setters)
   useEffect(() => {
     if (!isLoading && pdfDocRef.current) {
       renderPage(currentPage);
     }
   }, [currentPage, isLoading, renderPage]);
 
-  // Effect to sync progress to Zustand and IndexedDB
   useEffect(() => {
     if (isLoading) return;
 
@@ -147,28 +167,30 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     updateBookProgress(book.id, progress, currentPage);
   }, [currentPage, totalPages, isLoading, book.id, setStoreCurrentPage]);
 
-  // Page Turn Handlers with Animation
-  const goToPage = useCallback((newPage: number, direction: 'next' | 'prev') => {
-    if (newPage < 1 || newPage > totalPages || isFlipping) return;
+  const goToPage = useCallback(
+    (newPage: number, direction: 'next' | 'prev') => {
+      if (newPage < 1 || newPage > totalPages || isFlipping) return;
 
-    if (settings.soundEffects) {
-      playPageTurnSound();
-    }
+      if (settings.soundEffects) {
+        playPageTurnSound();
+      }
 
-    if (settings.pageTurnAnimation !== 'none') {
-      setIsFlipping(true);
-      setTurnDirection(direction);
-      setTimeout(() => {
-        setCurrentPage(newPage);
+      if (settings.pageTurnAnimation !== 'none') {
+        setIsFlipping(true);
+        setTurnDirection(direction);
         setTimeout(() => {
-          setIsFlipping(false);
-          setTurnDirection(null);
-        }, 250);
-      }, 150);
-    } else {
-      setCurrentPage(newPage);
-    }
-  }, [totalPages, isFlipping, settings.soundEffects, settings.pageTurnAnimation]);
+          setCurrentPage(newPage);
+          setTimeout(() => {
+            setIsFlipping(false);
+            setTurnDirection(null);
+          }, 240);
+        }, 140);
+      } else {
+        setCurrentPage(newPage);
+      }
+    },
+    [totalPages, isFlipping, settings.soundEffects, settings.pageTurnAnimation]
+  );
 
   const handleNextPage = useCallback(() => {
     goToPage(currentPage + 1, 'next');
@@ -178,7 +200,6 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     goToPage(currentPage - 1, 'prev');
   }, [goToPage, currentPage]);
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
@@ -194,14 +215,35 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleNextPage, handlePrevPage]);
 
+  // Tuned Filters: No muddy neon hue shifts!
   const getThemeFilter = () => {
     if (settings.theme === 'sepia') {
-      return 'sepia(0.35) contrast(1.08) brightness(0.98)';
+      // Gentle natural parchment warmth that keeps black ink 100% crisp
+      return 'sepia(0.18) brightness(0.98) contrast(1.02)';
     }
     if (settings.theme === 'dark') {
-      return 'invert(0.92) hue-rotate(180deg) contrast(1.15) brightness(0.95)';
+      if (settings.pdfDarkModeStyle === 'invert') {
+        // High quality grayscale invert: deep charcoal background with soft white text
+        return 'invert(0.9) brightness(0.95) contrast(0.92)';
+      }
+      // Ambient reading lamp mode: comfortable, slightly dimmed paper that won't blind the eyes
+      return 'brightness(0.90) contrast(1.02)';
     }
     return 'none';
+  };
+
+  // Stacked pages shadow effect like a real physical hardcover book
+  const getPageBoxShadow = () => {
+    if (settings.theme === 'dark') {
+      if (settings.pdfDarkModeStyle === 'invert') {
+        return '0 10px 30px -5px rgba(0, 0, 0, 0.8), 0 0 1px rgba(255, 255, 255, 0.15)';
+      }
+      return '0 20px 50px -10px rgba(0, 0, 0, 0.85), 0 0 20px rgba(245, 158, 11, 0.05), 0 0 1px rgba(255, 255, 255, 0.15)';
+    }
+    if (settings.theme === 'sepia') {
+      return '2px 2px 0 #D9CDB0, 4px 4px 0 #CFC3A4, 0 20px 35px -10px rgba(45, 30, 15, 0.15)';
+    }
+    return '2px 2px 0 #E6E2D8, 4px 4px 0 #DED9CD, 0 20px 35px -10px rgba(0, 0, 0, 0.1)';
   };
 
   return (
@@ -209,6 +251,18 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
       ref={containerRef}
       className="relative flex flex-col items-center justify-center min-h-[calc(100vh-80px)] w-full py-6 select-none overflow-x-hidden"
     >
+      {/* Dark Mode Ambient Spotlight Effect */}
+      {settings.theme === 'dark' && settings.pdfDarkModeStyle === 'ambient' && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(circle at 50% 45%, rgba(245, 158, 11, 0.06) 0%, rgba(12, 12, 14, 0) 70%)',
+          }}
+        />
+      )}
+
+      {/* Loading Skeleton */}
       {isLoading && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-inherit backdrop-blur-xs">
           <div
@@ -216,18 +270,23 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
             style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
           />
           <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
-            Membuka dokumen PDF...
+            Membuka lembaran buku...
           </p>
         </div>
       )}
 
-      <div className={`relative group flex items-center justify-center max-w-full ${isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}`}>
+      {/* Main Book Stage */}
+      <div
+        className={`relative group flex items-center justify-center max-w-full ${
+          isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'
+        }`}
+      >
         {/* Previous Page Button */}
         <button
           onClick={handlePrevPage}
           disabled={currentPage <= 1 || isFlipping}
           aria-label="Halaman Sebelumnya"
-          className="hidden md:flex absolute left-[-60px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
+          className="hidden md:flex absolute left-[-64px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
           style={{
             backgroundColor: 'var(--bg-surface-elevated)',
             borderColor: 'var(--border-color)',
@@ -240,11 +299,21 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         {/* 3D Page Container with GPU acceleration */}
         <div
           style={{
-            perspective: '1500px',
+            perspective: '1600px',
             perspectiveOrigin: turnDirection === 'next' ? 'left center' : 'right center',
           }}
           className="relative"
         >
+          {/* Stacked Pages Edge Depth on the right */}
+          <div
+            className="absolute -right-2 top-1.5 bottom-1.5 w-2.5 rounded-r-sm pointer-events-none transition-colors"
+            style={{
+              backgroundColor: settings.theme === 'dark' ? '#27272A' : '#EFECE4',
+              boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.15)',
+            }}
+          />
+
+          {/* Book Sheet Container */}
           <div
             style={{
               filter: getThemeFilter(),
@@ -263,15 +332,28 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
                 : 'rotateY(0deg) scale(1) translateX(0)',
               transformOrigin: turnDirection === 'next' ? 'left center' : 'right center',
               willChange: 'transform, filter',
-              boxShadow: 'var(--book-shadow-hover)',
+              boxShadow: getPageBoxShadow(),
+              backgroundColor: '#FFFFFF',
             }}
-            className="relative rounded-sm overflow-hidden border bg-white"
+            className="relative rounded-md overflow-hidden border border-black/10 dark:border-white/10"
           >
-            {/* Paper Spine crease shadow */}
-            <div className="absolute inset-y-0 left-0 w-8 pointer-events-none bg-gradient-to-r from-black/20 via-black/5 to-transparent z-10" />
+            {/* Ribbon Bookmark Accent (Top Right) */}
+            <div
+              className="absolute top-0 right-8 w-4 h-8 z-20 pointer-events-none shadow-sm rounded-b-xs"
+              style={{
+                backgroundColor: 'var(--accent)',
+              }}
+            />
 
-            {/* Always mounted canvas to prevent getContext of null error */}
-            <canvas ref={canvasRef} className="block max-w-full h-auto cursor-pointer" onClick={handleNextPage} />
+            {/* Book Spine crease & shadow on left */}
+            <div className="absolute inset-y-0 left-0 w-6 pointer-events-none bg-gradient-to-r from-black/25 via-black/5 to-transparent z-10" />
+
+            {/* Canvas */}
+            <canvas
+              ref={canvasRef}
+              className="block max-w-full h-auto cursor-pointer"
+              onClick={handleNextPage}
+            />
           </div>
         </div>
 
@@ -280,7 +362,7 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
           onClick={handleNextPage}
           disabled={currentPage >= totalPages || isFlipping}
           aria-label="Halaman Selanjutnya"
-          className="hidden md:flex absolute right-[-60px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
+          className="hidden md:flex absolute right-[-64px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
           style={{
             backgroundColor: 'var(--bg-surface-elevated)',
             borderColor: 'var(--border-color)',
@@ -291,9 +373,9 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         </button>
       </div>
 
-      {/* Floating Bottom Navigation Bar */}
+      {/* Floating Bottom Control Capsule */}
       <div
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-2xl border shadow-xl backdrop-blur-md transition-all"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border shadow-xl backdrop-blur-md transition-all"
         style={{
           backgroundColor: 'var(--bg-surface-elevated)',
           borderColor: 'var(--border-color)',
@@ -309,7 +391,10 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
           <ChevronLeft className="w-4 h-4" />
         </button>
 
-        <span className="text-xs font-bold px-2 min-w-[70px] text-center tracking-tight" style={{ color: 'var(--text-primary)' }}>
+        <span
+          className="text-xs font-bold px-2 min-w-[70px] text-center tracking-tight"
+          style={{ color: 'var(--text-primary)' }}
+        >
           {currentPage} / {totalPages}
         </span>
 
@@ -324,6 +409,39 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
 
         <div className="h-4 w-[1px] mx-1" style={{ backgroundColor: 'var(--border-color)' }} />
 
+        {/* Dark Mode Special Style Toggle (Ambient Desk vs Monochrome Invert) */}
+        {settings.theme === 'dark' && (
+          <>
+            <button
+              onClick={() =>
+                setPdfDarkModeStyle(
+                  settings.pdfDarkModeStyle === 'ambient' ? 'invert' : 'ambient'
+                )
+              }
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all"
+              style={{
+                backgroundColor: 'var(--accent-bg)',
+                borderColor: 'var(--accent)',
+                color: 'var(--accent-text)',
+              }}
+              title="Ganti Mode Tampilan Gelap (Lampu Meja vs Invert Teks)"
+            >
+              {settings.pdfDarkModeStyle === 'ambient' ? (
+                <>
+                  <Lamp className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-[11px]">Lampu Baca</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                  <span className="text-[11px]">Teks Gelap</span>
+                </>
+              )}
+            </button>
+            <div className="h-4 w-[1px] mx-1" style={{ backgroundColor: 'var(--border-color)' }} />
+          </>
+        )}
+
         <button
           onClick={() => setScale((s) => Math.max(0.7, s - 0.15))}
           className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
@@ -333,7 +451,7 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         </button>
 
         <button
-          onClick={() => setScale(1.2)}
+          onClick={() => setScale(1.15)}
           className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
           title="Reset Zoom"
         >

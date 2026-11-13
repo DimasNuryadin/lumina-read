@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ReaderSettings, ReaderTheme, FontFamily, PageTurnAnimation, Book } from '@/types/book';
+import type {
+  ReaderSettings,
+  ReaderTheme,
+  FontFamily,
+  PageTurnAnimation,
+  PdfDarkModeStyle,
+  Book,
+} from '@/types/book';
 
 interface ReaderStoreState {
   // User settings (persisted)
@@ -10,6 +17,7 @@ interface ReaderStoreState {
   setFontFamily: (fontFamily: FontFamily) => void;
   setLineHeight: (lineHeight: number) => void;
   setPageTurnAnimation: (animation: PageTurnAnimation) => void;
+  setPdfDarkModeStyle: (style: PdfDarkModeStyle) => void;
   toggleSoundEffects: () => void;
   toggleZenMode: () => void;
   setZenMode: (enabled: boolean) => void;
@@ -21,7 +29,7 @@ interface ReaderStoreState {
   currentCfi: string | null;
   isSidebarOpen: boolean;
   activeSidebarTab: 'toc' | 'bookmarks' | 'settings';
-  
+
   setActiveBook: (book: Book | null) => void;
   setCurrentPage: (page: number) => void;
   setTotalPages: (pages: number) => void;
@@ -39,6 +47,7 @@ const DEFAULT_SETTINGS: ReaderSettings = {
   pageTurnAnimation: 'curl',
   soundEffects: true,
   zenMode: false,
+  pdfDarkModeStyle: 'ambient',
 };
 
 export const useReaderStore = create<ReaderStoreState>()(
@@ -55,6 +64,8 @@ export const useReaderStore = create<ReaderStoreState>()(
         set((state) => ({ settings: { ...state.settings, lineHeight } })),
       setPageTurnAnimation: (pageTurnAnimation) =>
         set((state) => ({ settings: { ...state.settings, pageTurnAnimation } })),
+      setPdfDarkModeStyle: (pdfDarkModeStyle) =>
+        set((state) => ({ settings: { ...state.settings, pdfDarkModeStyle } })),
       toggleSoundEffects: () =>
         set((state) => ({
           settings: { ...state.settings, soundEffects: !state.settings.soundEffects },

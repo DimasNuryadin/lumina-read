@@ -19,6 +19,7 @@ import {
   Trash2,
   X,
   Sparkles,
+  Lamp,
 } from 'lucide-react';
 
 interface ReaderToolbarProps {
@@ -40,6 +41,7 @@ export default function ReaderToolbar({
     setFontSize,
     setFontFamily,
     setPageTurnAnimation,
+    setPdfDarkModeStyle,
     toggleSoundEffects,
     toggleZenMode,
     currentPage,
@@ -428,6 +430,63 @@ export default function ReaderToolbar({
                       </button>
                     </div>
                   </div>
+
+                  {/* Dark Mode Style for PDF documents */}
+                  {settings.theme === 'dark' && book.format === 'pdf' && (
+                    <div className="pt-1">
+                      <label
+                        className="text-xs font-bold tracking-wider uppercase mb-2 block"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        Gaya Dark Mode (PDF)
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setPdfDarkModeStyle('ambient')}
+                          className="flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all"
+                          style={{
+                            backgroundColor:
+                              settings.pdfDarkModeStyle === 'ambient'
+                                ? 'var(--accent-bg)'
+                                : 'var(--bg-subtle)',
+                            borderColor:
+                              settings.pdfDarkModeStyle === 'ambient'
+                                ? 'var(--accent)'
+                                : 'var(--border-color)',
+                            color:
+                              settings.pdfDarkModeStyle === 'ambient'
+                                ? 'var(--accent-text)'
+                                : 'var(--text-primary)',
+                          }}
+                        >
+                          <Lamp className="w-4 h-4 text-amber-500" />
+                          Lampu Meja
+                        </button>
+
+                        <button
+                          onClick={() => setPdfDarkModeStyle('invert')}
+                          className="flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all"
+                          style={{
+                            backgroundColor:
+                              settings.pdfDarkModeStyle === 'invert'
+                                ? 'var(--accent-bg)'
+                                : 'var(--bg-subtle)',
+                            borderColor:
+                              settings.pdfDarkModeStyle === 'invert'
+                                ? 'var(--accent)'
+                                : 'var(--border-color)',
+                            color:
+                              settings.pdfDarkModeStyle === 'invert'
+                                ? 'var(--accent-text)'
+                                : 'var(--text-primary)',
+                          }}
+                        >
+                          <Moon className="w-4 h-4 text-indigo-400" />
+                          Invert Halus
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Font Size Selector */}
                   <div>

@@ -6,6 +6,8 @@ export type FontFamily = 'serif' | 'sans' | 'mono';
 
 export type PageTurnAnimation = 'curl' | 'slide' | 'fade' | 'none';
 
+export type PdfDarkModeStyle = 'ambient' | 'invert';
+
 export interface Book {
   id: string;
   title: string;
@@ -32,12 +34,13 @@ export interface Bookmark {
 
 export interface ReaderSettings {
   theme: ReaderTheme;
-  fontSize: number; // e.g., 16 (base in px) or 100 (%)
+  fontSize: number; // in px
   fontFamily: FontFamily;
-  lineHeight: number; // e.g., 1.6
+  lineHeight: number;
   pageTurnAnimation: PageTurnAnimation;
   soundEffects: boolean;
   zenMode: boolean;
+  pdfDarkModeStyle: PdfDarkModeStyle;
 }
 
 export interface TableOfContentsItem {

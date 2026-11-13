@@ -195,8 +195,29 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleNext, handlePrev]);
 
+  const getPageBoxShadow = () => {
+    if (settings.theme === 'dark') {
+      return '0 20px 50px -10px rgba(0, 0, 0, 0.9), 0 0 1px rgba(255, 255, 255, 0.15)';
+    }
+    if (settings.theme === 'sepia') {
+      return '2px 2px 0 #D9CDB0, 4px 4px 0 #CFC3A4, 0 20px 35px -10px rgba(45, 30, 15, 0.15)';
+    }
+    return '2px 2px 0 #E6E2D8, 4px 4px 0 #DED9CD, 0 20px 35px -10px rgba(0, 0, 0, 0.1)';
+  };
+
   return (
     <div className="relative flex flex-col items-center justify-center w-full min-h-[calc(100vh-80px)] select-none">
+      {/* Dark Mode Ambient Spotlight Effect */}
+      {settings.theme === 'dark' && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(circle at 50% 45%, rgba(245, 158, 11, 0.05) 0%, rgba(12, 12, 14, 0) 70%)',
+          }}
+        />
+      )}
+
       {isLoading && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-inherit animate-pulse">
           <div
@@ -224,20 +245,41 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
           <ChevronLeft className="w-6 h-6" />
         </button>
 
+        {/* Stacked Pages Edge Depth on the right */}
+        <div
+          className="absolute right-5 sm:right-9 top-6 bottom-6 w-2.5 rounded-r-sm pointer-events-none transition-colors"
+          style={{
+            backgroundColor: settings.theme === 'dark' ? '#27272A' : '#EFECE4',
+            boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.15)',
+          }}
+        />
+
         {/* EPUB iframe container */}
         <div
           ref={viewerRef}
-          className="w-full h-full rounded-xl border shadow-xl overflow-hidden transition-all duration-300"
+          className="relative w-full h-full rounded-md border overflow-hidden transition-all duration-300"
           style={{
             backgroundColor:
               settings.theme === 'sepia'
                 ? '#F5EEDB'
                 : settings.theme === 'dark'
-                ? '#0C0C0E'
+                ? '#101012'
                 : '#FAF9F6',
             borderColor: 'var(--border-color)',
+            boxShadow: getPageBoxShadow(),
           }}
-        />
+        >
+          {/* Ribbon Bookmark Accent */}
+          <div
+            className="absolute top-0 right-8 w-4 h-8 z-20 pointer-events-none shadow-sm rounded-b-xs"
+            style={{
+              backgroundColor: 'var(--accent)',
+            }}
+          />
+
+          {/* Book Spine crease & shadow on left */}
+          <div className="absolute inset-y-0 left-0 w-6 pointer-events-none bg-gradient-to-r from-black/20 via-black/5 to-transparent z-10" />
+        </div>
 
         <button
           onClick={handleNext}
