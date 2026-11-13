@@ -17,8 +17,10 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
   const pdfDocRef = useRef<any>(null);
+  const onPageChangeRef = useRef(onPageChange);
+  onPageChangeRef.current = onPageChange;
 
-  const initialPage = typeof book.currentLocation === 'number' ? book.currentLocation : 1;
+  const initialPage = typeof book.currentLocation === 'number' && book.currentLocation > 0 ? book.currentLocation : 1;
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [totalPages, setTotalPages] = useState<number>(book.totalLocations || 1);
   const [scale, setScale] = useState<number>(1.2);
@@ -58,7 +60,9 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         setIsLoading(false);
       } catch (err) {
         console.error('Failed to load PDF document:', err);
-        setIsLoading(false);
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
       }
     }
 
@@ -67,7 +71,11 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     return () => {
       isCancelled = true;
       if (renderTaskRef.current) {
-        renderTaskRef.current.cancel();
+        try {
+          renderTaskRef.current.cancel();
+        } catch (e) {
+          console.debug(e);
+        }
       }
     };
   }, [book, setStoreTotalPages]);
@@ -77,13 +85,19 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     if (!pdfDocRef.current || !canvasRef.current) return;
 
     if (renderTaskRef.current) {
-      renderTaskRef.current.cancel();
+      try {
+        renderTaskRef.current.cancel();
+      } catch (e) {
+        console.debug(e);
+      }
       renderTaskRef.current = null;
     }
 
     try {
       const page = await pdfDocRef.current.getPage(pageNum);
       const canvas = canvasRef.current;
+      if (!canvas) return;
+
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
@@ -113,17 +127,25 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     }
   }, [scale]);
 
+  // Effect to render canvas whenever currentPage or scale changes (independent of store setters)
   useEffect(() => {
     if (!isLoading && pdfDocRef.current) {
       renderPage(currentPage);
-      setStoreCurrentPage(currentPage);
-      if (onPageChange) {
-        onPageChange(currentPage, totalPages);
-      }
-      const progress = totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
-      updateBookProgress(book.id, progress, currentPage);
     }
-  }, [currentPage, isLoading, totalPages, renderPage, book.id, onPageChange, setStoreCurrentPage]);
+  }, [currentPage, isLoading, renderPage]);
+
+  // Effect to sync progress to Zustand and IndexedDB
+  useEffect(() => {
+    if (isLoading) return;
+
+    setStoreCurrentPage(currentPage);
+    if (onPageChangeRef.current) {
+      onPageChangeRef.current(currentPage, totalPages);
+    }
+
+    const progress = totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
+    updateBookProgress(book.id, progress, currentPage);
+  }, [currentPage, totalPages, isLoading, book.id, setStoreCurrentPage]);
 
   // Page Turn Handlers with Animation
   const goToPage = useCallback((newPage: number, direction: 'next' | 'prev') => {
@@ -172,14 +194,11 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleNextPage, handlePrevPage]);
 
-  // High contrast filters for razor-sharp readability
   const getThemeFilter = () => {
     if (settings.theme === 'sepia') {
-      // Warm paper tint while boosting text contrast
       return 'sepia(0.35) contrast(1.08) brightness(0.98)';
     }
     if (settings.theme === 'dark') {
-      // Invert for night reading with crisp typography contrast
       return 'invert(0.92) hue-rotate(180deg) contrast(1.15) brightness(0.95)';
     }
     return 'none';
@@ -190,87 +209,87 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
       ref={containerRef}
       className="relative flex flex-col items-center justify-center min-h-[calc(100vh-80px)] w-full py-6 select-none overflow-x-hidden"
     >
-      {isLoading ? (
-        <div className="flex flex-col items-center gap-4 py-32 animate-pulse">
+      {isLoading && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-inherit backdrop-blur-xs">
           <div
-            className="w-10 h-10 rounded-full border-3 border-t-transparent animate-spin"
+            className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin"
             style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
           />
           <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
             Membuka dokumen PDF...
           </p>
         </div>
-      ) : (
-        <div className="relative group flex items-center justify-center max-w-full">
-          {/* Previous Page Button */}
-          <button
-            onClick={handlePrevPage}
-            disabled={currentPage <= 1 || isFlipping}
-            aria-label="Halaman Sebelumnya"
-            className="hidden md:flex absolute left-[-60px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
-            style={{
-              backgroundColor: 'var(--bg-surface-elevated)',
-              borderColor: 'var(--border-color)',
-              color: 'var(--text-primary)',
-            }}
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
+      )}
 
-          {/* 3D Page Container with GPU acceleration */}
+      <div className={`relative group flex items-center justify-center max-w-full ${isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}`}>
+        {/* Previous Page Button */}
+        <button
+          onClick={handlePrevPage}
+          disabled={currentPage <= 1 || isFlipping}
+          aria-label="Halaman Sebelumnya"
+          className="hidden md:flex absolute left-[-60px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
+          style={{
+            backgroundColor: 'var(--bg-surface-elevated)',
+            borderColor: 'var(--border-color)',
+            color: 'var(--text-primary)',
+          }}
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+
+        {/* 3D Page Container with GPU acceleration */}
+        <div
+          style={{
+            perspective: '1500px',
+            perspectiveOrigin: turnDirection === 'next' ? 'left center' : 'right center',
+          }}
+          className="relative"
+        >
           <div
             style={{
-              perspective: '1500px',
-              perspectiveOrigin: turnDirection === 'next' ? 'left center' : 'right center',
+              filter: getThemeFilter(),
+              transition:
+                settings.pageTurnAnimation === 'curl'
+                  ? 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease'
+                  : 'transform 0.25s ease-out, opacity 0.25s ease-out',
+              transform: isFlipping
+                ? settings.pageTurnAnimation === 'curl'
+                  ? turnDirection === 'next'
+                    ? 'rotateY(-20deg) scale(0.98)'
+                    : 'rotateY(20deg) scale(0.98)'
+                  : turnDirection === 'next'
+                  ? 'translateX(-15px) opacity(0.7)'
+                  : 'translateX(15px) opacity(0.7)'
+                : 'rotateY(0deg) scale(1) translateX(0)',
+              transformOrigin: turnDirection === 'next' ? 'left center' : 'right center',
+              willChange: 'transform, filter',
+              boxShadow: 'var(--book-shadow-hover)',
             }}
-            className="relative"
+            className="relative rounded-sm overflow-hidden border bg-white"
           >
-            <div
-              style={{
-                filter: getThemeFilter(),
-                transition:
-                  settings.pageTurnAnimation === 'curl'
-                    ? 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease'
-                    : 'transform 0.25s ease-out, opacity 0.25s ease-out',
-                transform: isFlipping
-                  ? settings.pageTurnAnimation === 'curl'
-                    ? turnDirection === 'next'
-                      ? 'rotateY(-20deg) scale(0.98)'
-                      : 'rotateY(20deg) scale(0.98)'
-                    : turnDirection === 'next'
-                    ? 'translateX(-15px) opacity(0.7)'
-                    : 'translateX(15px) opacity(0.7)'
-                  : 'rotateY(0deg) scale(1) translateX(0)',
-                transformOrigin: turnDirection === 'next' ? 'left center' : 'right center',
-                willChange: 'transform, filter',
-                boxShadow: 'var(--book-shadow-hover)',
-              }}
-              className="relative rounded-sm overflow-hidden border bg-white"
-            >
-              {/* Paper Spine crease shadow */}
-              <div className="absolute inset-y-0 left-0 w-8 pointer-events-none bg-gradient-to-r from-black/20 via-black/5 to-transparent z-10" />
+            {/* Paper Spine crease shadow */}
+            <div className="absolute inset-y-0 left-0 w-8 pointer-events-none bg-gradient-to-r from-black/20 via-black/5 to-transparent z-10" />
 
-              {/* Render Canvas */}
-              <canvas ref={canvasRef} className="block max-w-full h-auto cursor-pointer" onClick={handleNextPage} />
-            </div>
+            {/* Always mounted canvas to prevent getContext of null error */}
+            <canvas ref={canvasRef} className="block max-w-full h-auto cursor-pointer" onClick={handleNextPage} />
           </div>
-
-          {/* Next Page Button */}
-          <button
-            onClick={handleNextPage}
-            disabled={currentPage >= totalPages || isFlipping}
-            aria-label="Halaman Selanjutnya"
-            className="hidden md:flex absolute right-[-60px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
-            style={{
-              backgroundColor: 'var(--bg-surface-elevated)',
-              borderColor: 'var(--border-color)',
-              color: 'var(--text-primary)',
-            }}
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
         </div>
-      )}
+
+        {/* Next Page Button */}
+        <button
+          onClick={handleNextPage}
+          disabled={currentPage >= totalPages || isFlipping}
+          aria-label="Halaman Selanjutnya"
+          className="hidden md:flex absolute right-[-60px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
+          style={{
+            backgroundColor: 'var(--bg-surface-elevated)',
+            borderColor: 'var(--border-color)',
+            color: 'var(--text-primary)',
+          }}
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+      </div>
 
       {/* Floating Bottom Navigation Bar */}
       <div

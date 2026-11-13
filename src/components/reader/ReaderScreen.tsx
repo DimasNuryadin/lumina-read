@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import type { Book, TableOfContentsItem } from '@/types/book';
 import { useReaderStore } from '@/lib/store/useReaderStore';
@@ -47,7 +47,7 @@ export default function ReaderScreen({ book, onBackToLibrary }: ReaderScreenProp
   const [toc, setToc] = useState<TableOfContentsItem[]>([]);
   const [hasCelebrated, setHasCelebrated] = useState<boolean>(false);
 
-  const handleProgressUpdate = (current: number, total: number) => {
+  const handleProgressUpdate = useCallback((current: number, total: number) => {
     if (total > 0 && current >= total && !hasCelebrated) {
       setHasCelebrated(true);
       confetti({
@@ -56,7 +56,7 @@ export default function ReaderScreen({ book, onBackToLibrary }: ReaderScreenProp
         origin: { y: 0.8 },
       });
     }
-  };
+  }, [hasCelebrated]);
 
   return (
     <div
@@ -71,7 +71,7 @@ export default function ReaderScreen({ book, onBackToLibrary }: ReaderScreenProp
 
       <main className="pt-16 pb-8 px-2 sm:px-4 flex flex-col items-center justify-center min-h-screen">
         {book.format === 'pdf' ? (
-          <PdfReader book={book} onPageChange={(page, total) => handleProgressUpdate(page, total)} />
+          <PdfReader book={book} onPageChange={handleProgressUpdate} />
         ) : (
           <EpubReader
             book={book}
