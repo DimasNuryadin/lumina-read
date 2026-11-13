@@ -61,7 +61,7 @@ export default function ReaderScreen({ book, onBackToLibrary }: ReaderScreenProp
   return (
     <div
       data-theme={settings.theme}
-      className="min-h-screen w-full transition-colors duration-200 relative"
+      className="fixed inset-0 h-screen w-screen overflow-hidden flex flex-col select-none"
       style={{
         backgroundColor: 'var(--bg-page)',
         color: 'var(--text-primary)',
@@ -69,7 +69,7 @@ export default function ReaderScreen({ book, onBackToLibrary }: ReaderScreenProp
     >
       <ReaderToolbar book={book} onBackToLibrary={onBackToLibrary} toc={toc} />
 
-      <main className="pt-16 pb-8 px-2 sm:px-4 flex flex-col items-center justify-center min-h-screen">
+      <main className="flex-1 w-full h-[calc(100vh-56px)] pt-14 overflow-hidden relative flex items-center justify-center">
         {book.format === 'pdf' ? (
           <PdfReader book={book} onPageChange={handleProgressUpdate} />
         ) : (
