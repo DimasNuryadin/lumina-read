@@ -21,6 +21,8 @@ import {
   X,
   Sparkles,
   Lamp,
+  BookOpen,
+  FileText,
 } from 'lucide-react';
 
 interface ReaderToolbarProps {
@@ -43,6 +45,8 @@ export default function ReaderToolbar({
     setFontFamily,
     setPageTurnAnimation,
     setPdfDarkModeStyle,
+    toggleTwoPageSpread,
+    setTwoPageSpread,
     toggleSoundEffects,
     toggleZenMode,
     isControlsVisible,
@@ -650,6 +654,49 @@ export default function ReaderToolbar({
                         }}
                       >
                         Instan
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tata Letak Dua Halaman (Two-Page Spread) */}
+                  <div>
+                    <label
+                      className="text-xs font-bold tracking-wider uppercase mb-2 block flex items-center gap-1.5"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      <BookOpen className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                      Tata Letak Lembaran
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          setTwoPageSpread(false);
+                          goeyToast.info('Mode 1 Halaman Aktif');
+                        }}
+                        className="flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: !settings.twoPageSpread ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: !settings.twoPageSpread ? 'var(--accent)' : 'var(--border-color)',
+                          color: !settings.twoPageSpread ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
+                      >
+                        <FileText className="w-4 h-4" />
+                        1 Halaman
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTwoPageSpread(true);
+                          goeyToast.info('Mode 2 Halaman (Buku Terbuka) Aktif');
+                        }}
+                        className="flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: settings.twoPageSpread ? 'var(--accent-bg)' : 'var(--bg-subtle)',
+                          borderColor: settings.twoPageSpread ? 'var(--accent)' : 'var(--border-color)',
+                          color: settings.twoPageSpread ? 'var(--accent-text)' : 'var(--text-primary)',
+                        }}
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        2 Halaman (Buku)
                       </button>
                     </div>
                   </div>

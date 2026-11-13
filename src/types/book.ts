@@ -41,6 +41,7 @@ export interface ReaderSettings {
   soundEffects: boolean;
   zenMode: boolean;
   pdfDarkModeStyle: PdfDarkModeStyle;
+  twoPageSpread: boolean;
 }
 
 export interface TableOfContentsItem {

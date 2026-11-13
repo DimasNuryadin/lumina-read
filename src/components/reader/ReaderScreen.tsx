@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import type { Book, TableOfContentsItem } from '@/types/book';
 import { useReaderStore } from '@/lib/store/useReaderStore';
@@ -46,6 +46,19 @@ export default function ReaderScreen({ book, onBackToLibrary }: ReaderScreenProp
   const { settings } = useReaderStore();
   const [toc, setToc] = useState<TableOfContentsItem[]>([]);
   const [hasCelebrated, setHasCelebrated] = useState<boolean>(false);
+
+  // Prevent double scrollbars by locking document and body overflow
+  useEffect(() => {
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.body.style.overflow = originalBodyOverflow;
+    };
+  }, []);
 
   const handleProgressUpdate = useCallback((current: number, total: number) => {
     if (total > 0 && current >= total && !hasCelebrated) {

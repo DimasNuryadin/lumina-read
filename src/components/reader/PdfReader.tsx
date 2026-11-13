@@ -5,6 +5,7 @@ import type { Book } from '@/types/book';
 import { updateBookProgress } from '@/lib/db';
 import { useReaderStore } from '@/lib/store/useReaderStore';
 import { playPageTurnSound } from '@/lib/audio/soundEffects';
+import { goeyToast } from 'goey-toast';
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,6 +17,8 @@ import {
   Search,
   X,
   Minimize2,
+  BookOpen,
+  FileText,
 } from 'lucide-react';
 
 interface PdfReaderProps {
@@ -25,8 +28,10 @@ interface PdfReaderProps {
 
 export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const renderTaskRef = useRef<any>(null);
+  const leftCanvasRef = useRef<HTMLCanvasElement>(null);
+  const rightCanvasRef = useRef<HTMLCanvasElement>(null);
+  const leftRenderTaskRef = useRef<any>(null);
+  const rightRenderTaskRef = useRef<any>(null);
   const pdfDocRef = useRef<any>(null);
   const onPageChangeRef = useRef(onPageChange);
   onPageChangeRef.current = onPageChange;
@@ -52,11 +57,47 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     isControlsVisible,
     toggleZenMode,
     setPdfDarkModeStyle,
+    toggleTwoPageSpread,
     setTotalPages: setStoreTotalPages,
     setCurrentPage: setStoreCurrentPage,
   } = useReaderStore();
 
-  // Load PDF Document & Auto-fit scale to viewport
+  // Two-page pairing logic
+  const isTwoPage = settings.twoPageSpread;
+  const leftPage = isTwoPage
+    ? currentPage % 2 === 0
+      ? currentPage - 1
+      : currentPage
+    : currentPage;
+  const rightPage = isTwoPage && leftPage + 1 <= totalPages ? leftPage + 1 : null;
+
+  // Auto-fit scale to viewport helper
+  const adjustScaleToFit = useCallback(
+    async (twoPagesMode: boolean) => {
+      if (!pdfDocRef.current) return;
+      try {
+        const firstPage = await pdfDocRef.current.getPage(1);
+        const rawViewport = firstPage.getViewport({ scale: 1.0 });
+        const availableHeight = Math.max(450, window.innerHeight - 150);
+        const availableWidth = Math.max(600, window.innerWidth - 120);
+
+        if (twoPagesMode) {
+          const scaleByWidth = availableWidth / 2 / rawViewport.width;
+          const scaleByHeight = availableHeight / rawViewport.height;
+          const fitScale = Math.min(1.15, Math.max(0.42, Math.min(scaleByWidth, scaleByHeight)));
+          setScale(Number(fitScale.toFixed(2)));
+        } else {
+          const fitScale = Math.min(1.4, Math.max(0.65, availableHeight / rawViewport.height));
+          setScale(Number(fitScale.toFixed(2)));
+        }
+      } catch (e) {
+        console.debug('Failed to auto-fit PDF scale:', e);
+      }
+    },
+    []
+  );
+
+  // Load PDF Document
   useEffect(() => {
     let isCancelled = false;
 
@@ -84,13 +125,22 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         setTotalPages(doc.numPages);
         setStoreTotalPages(doc.numPages);
 
-        // Auto-fit scale to window height to prevent double scrollbars
+        // Adjust scale
         try {
           const firstPage = await doc.getPage(1);
           const rawViewport = firstPage.getViewport({ scale: 1.0 });
-          const availableHeight = Math.max(450, window.innerHeight - 140);
-          const fitScale = Math.min(1.4, Math.max(0.65, availableHeight / rawViewport.height));
-          setScale(Number(fitScale.toFixed(2)));
+          const availableHeight = Math.max(450, window.innerHeight - 150);
+          const availableWidth = Math.max(600, window.innerWidth - 120);
+
+          if (settings.twoPageSpread) {
+            const scaleByWidth = availableWidth / 2 / rawViewport.width;
+            const scaleByHeight = availableHeight / rawViewport.height;
+            const fitScale = Math.min(1.15, Math.max(0.42, Math.min(scaleByWidth, scaleByHeight)));
+            setScale(Number(fitScale.toFixed(2)));
+          } else {
+            const fitScale = Math.min(1.4, Math.max(0.65, availableHeight / rawViewport.height));
+            setScale(Number(fitScale.toFixed(2)));
+          }
         } catch (e) {
           console.debug(e);
         }
@@ -108,33 +158,50 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
 
     return () => {
       isCancelled = true;
-      if (renderTaskRef.current) {
+      if (leftRenderTaskRef.current) {
         try {
-          renderTaskRef.current.cancel();
+          leftRenderTaskRef.current.cancel();
+        } catch (e) {
+          console.debug(e);
+        }
+      }
+      if (rightRenderTaskRef.current) {
+        try {
+          rightRenderTaskRef.current.cancel();
         } catch (e) {
           console.debug(e);
         }
       }
     };
-  }, [book, setStoreTotalPages]);
+  }, [book, setStoreTotalPages, settings.twoPageSpread]);
 
-  // Render current page to Canvas with HiDPI support
-  const renderPage = useCallback(
-    async (pageNum: number) => {
-      if (!pdfDocRef.current || !canvasRef.current) return;
+  // Handle responsive resize scale re-calculation on spread change
+  useEffect(() => {
+    if (!isLoading && pdfDocRef.current) {
+      adjustScaleToFit(settings.twoPageSpread);
+    }
+  }, [settings.twoPageSpread, isLoading, adjustScaleToFit]);
 
-      if (renderTaskRef.current) {
+  // Render a single PDF page into a designated canvas
+  const renderPageToCanvas = useCallback(
+    async (
+      pageNum: number,
+      canvas: HTMLCanvasElement | null,
+      taskRef: React.MutableRefObject<any>
+    ) => {
+      if (!pdfDocRef.current || !canvas) return;
+
+      if (taskRef.current) {
         try {
-          renderTaskRef.current.cancel();
+          taskRef.current.cancel();
         } catch (e) {
           console.debug(e);
         }
-        renderTaskRef.current = null;
+        taskRef.current = null;
       }
 
       try {
         const page = await pdfDocRef.current.getPage(pageNum);
-        const canvas = canvasRef.current;
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
@@ -156,24 +223,33 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         };
 
         const task = page.render(renderContext);
-        renderTaskRef.current = task;
+        taskRef.current = task;
         await task.promise;
-        renderTaskRef.current = null;
+        taskRef.current = null;
       } catch (err: any) {
         if (err?.name !== 'RenderingCancelledException') {
-          console.error('PDF Page render error:', err);
+          console.error(`PDF Page ${pageNum} render error:`, err);
         }
       }
     },
     [scale]
   );
 
+  // Render trigger on page change or spread change
   useEffect(() => {
     if (!isLoading && pdfDocRef.current) {
-      renderPage(currentPage);
+      if (isTwoPage) {
+        renderPageToCanvas(leftPage, leftCanvasRef.current, leftRenderTaskRef);
+        if (rightPage) {
+          renderPageToCanvas(rightPage, rightCanvasRef.current, rightRenderTaskRef);
+        }
+      } else {
+        renderPageToCanvas(currentPage, leftCanvasRef.current, leftRenderTaskRef);
+      }
     }
-  }, [currentPage, isLoading, renderPage]);
+  }, [currentPage, leftPage, rightPage, isTwoPage, isLoading, renderPageToCanvas]);
 
+  // Store and Progress Syncing
   useEffect(() => {
     if (isLoading) return;
 
@@ -191,30 +267,43 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
   // Rapid Paging without blocking (Instant response)
   const goToPage = useCallback(
     (newPage: number, direction: 'next' | 'prev') => {
-      if (newPage < 1 || newPage > totalPages) return;
+      const validPage = Math.max(1, Math.min(totalPages, newPage));
+      if (validPage === currentPage && newPage !== currentPage) return;
 
       if (settings.soundEffects) {
         playPageTurnSound();
       }
 
       // Immediately change state to allow rapid clicking
-      setCurrentPage(newPage);
+      setCurrentPage(validPage);
       setSlideDirection(direction);
       setIsAnimating(true);
       setTimeout(() => {
         setIsAnimating(false);
       }, 120);
     },
-    [totalPages, settings.soundEffects]
+    [totalPages, currentPage, settings.soundEffects]
   );
 
   const handleNextPage = useCallback(() => {
-    goToPage(currentPage + 1, 'next');
-  }, [goToPage, currentPage]);
+    if (isTwoPage) {
+      const nextTarget = leftPage + 2;
+      if (nextTarget <= totalPages || rightPage !== null) {
+        goToPage(Math.min(totalPages, nextTarget), 'next');
+      }
+    } else {
+      goToPage(currentPage + 1, 'next');
+    }
+  }, [isTwoPage, leftPage, rightPage, totalPages, currentPage, goToPage]);
 
   const handlePrevPage = useCallback(() => {
-    goToPage(currentPage - 1, 'prev');
-  }, [goToPage, currentPage]);
+    if (isTwoPage) {
+      const prevTarget = Math.max(1, leftPage - 2);
+      goToPage(prevTarget, 'prev');
+    } else {
+      goToPage(currentPage - 1, 'prev');
+    }
+  }, [isTwoPage, leftPage, currentPage, goToPage]);
 
   // Jump to specific page handler
   const handleExecuteJump = (targetPageNum: number) => {
@@ -272,6 +361,11 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     return '2px 2px 0 #E6E2D8, 4px 4px 0 #DED9CD, 0 20px 35px -10px rgba(0, 0, 0, 0.1)';
   };
 
+  const isPrevDisabled = isTwoPage ? leftPage <= 1 : currentPage <= 1;
+  const isNextDisabled = isTwoPage
+    ? rightPage ? rightPage >= totalPages : leftPage >= totalPages
+    : currentPage >= totalPages;
+
   return (
     <div
       ref={containerRef}
@@ -326,7 +420,7 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         {/* Previous Page Button - Rapid Clicking Enabled */}
         <button
           onClick={handlePrevPage}
-          disabled={currentPage <= 1}
+          disabled={isPrevDisabled}
           aria-label="Halaman Sebelumnya"
           className="hidden md:flex absolute left-[-64px] top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-90 disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
           style={{
@@ -338,56 +432,155 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        {/* Book Sheet Container with Instant Fast Paging & Smooth Micro-Motion */}
-        <div className="relative">
-          {/* Stacked Pages Edge Depth on the right */}
-          <div
-            className="absolute -right-2 top-1.5 bottom-1.5 w-2 rounded-r-sm pointer-events-none transition-colors"
-            style={{
-              backgroundColor: settings.theme === 'dark' ? '#27272A' : '#EFECE4',
-              boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.15)',
-            }}
-          />
+        {/* BOOK CONTAINER */}
+        {!isTwoPage ? (
+          /* SINGLE PAGE VIEW */
+          <div className="relative">
+            {/* Stacked Pages Edge Depth on the right */}
+            <div
+              className="absolute -right-2 top-1.5 bottom-1.5 w-2 rounded-r-sm pointer-events-none transition-colors"
+              style={{
+                backgroundColor: settings.theme === 'dark' ? '#27272A' : '#EFECE4',
+                boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.15)',
+              }}
+            />
 
-          {/* Book Paper with Smooth Transition */}
+            {/* Book Paper with Smooth Transition */}
+            <div
+              style={{
+                transform: isAnimating
+                  ? slideDirection === 'next'
+                    ? 'translateX(-12px)'
+                    : 'translateX(12px)'
+                  : 'translateX(0)',
+                transition: isAnimating ? 'transform 0.08s ease-out' : 'transform 0.12s ease-out',
+                filter: getThemeFilter(),
+                boxShadow: getPageBoxShadow(),
+                backgroundColor: '#FFFFFF',
+              }}
+              className="relative rounded-md overflow-hidden border border-black/10 dark:border-white/10"
+            >
+              {/* Ribbon Bookmark Accent (Top Right) */}
+              <div
+                className="absolute top-0 right-8 w-3.5 h-7 z-20 pointer-events-none shadow-sm rounded-b-xs"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                }}
+              />
+
+              {/* Book Spine crease shadow on left */}
+              <div className="absolute inset-y-0 left-0 w-5 pointer-events-none bg-gradient-to-r from-black/20 via-black/5 to-transparent z-10" />
+
+              {/* Canvas */}
+              <canvas
+                ref={leftCanvasRef}
+                className="block max-w-full max-h-[calc(100vh-140px)] w-auto h-auto cursor-pointer"
+                onClick={handleNextPage}
+              />
+            </div>
+          </div>
+        ) : (
+          /* TWO-PAGE SPREAD VIEW (DUAL PAGE / OPEN BOOK) */
           <div
+            className="relative flex items-center shadow-2xl rounded-lg"
             style={{
               transform: isAnimating
                 ? slideDirection === 'next'
-                  ? 'translateX(-12px)'
-                  : 'translateX(12px)'
+                  ? 'translateX(-14px)'
+                  : 'translateX(14px)'
                 : 'translateX(0)',
               transition: isAnimating ? 'transform 0.08s ease-out' : 'transform 0.12s ease-out',
               filter: getThemeFilter(),
               boxShadow: getPageBoxShadow(),
-              backgroundColor: '#FFFFFF',
             }}
-            className="relative rounded-md overflow-hidden border border-black/10 dark:border-white/10"
           >
-            {/* Ribbon Bookmark Accent (Top Right) */}
+            {/* Left stacked pages depth */}
             <div
-              className="absolute top-0 right-8 w-3.5 h-7 z-20 pointer-events-none shadow-sm rounded-b-xs"
+              className="absolute -left-2 top-1.5 bottom-1.5 w-2 rounded-l-xs pointer-events-none transition-colors"
               style={{
-                backgroundColor: 'var(--accent)',
+                backgroundColor: settings.theme === 'dark' ? '#27272A' : '#EFECE4',
+                boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.15)',
               }}
             />
 
-            {/* Book Spine crease shadow on left */}
-            <div className="absolute inset-y-0 left-0 w-5 pointer-events-none bg-gradient-to-r from-black/20 via-black/5 to-transparent z-10" />
+            {/* LEFT PAGE */}
+            <div className="relative rounded-l-md overflow-hidden border-y border-l border-black/10 dark:border-white/10 bg-white">
+              {/* Left page inner spine shadow (right side of left page) */}
+              <div className="absolute inset-y-0 right-0 w-8 pointer-events-none bg-gradient-to-l from-black/20 via-black/5 to-transparent z-10" />
 
-            {/* Canvas */}
-            <canvas
-              ref={canvasRef}
-              className="block max-w-full max-h-[calc(100vh-140px)] w-auto h-auto cursor-pointer"
-              onClick={handleNextPage}
+              <canvas
+                ref={leftCanvasRef}
+                className="block max-w-full max-h-[calc(100vh-140px)] w-auto h-auto cursor-pointer"
+                onClick={handlePrevPage}
+              />
+
+              {/* Subtle page number stamp at bottom of left page */}
+              <div className="absolute bottom-2 left-4 text-[10px] font-mono text-black/40 pointer-events-none select-none">
+                {leftPage}
+              </div>
+            </div>
+
+            {/* CENTER BOOK CREASE / SPINE BINDING */}
+            <div className="w-[3px] self-stretch bg-neutral-300 dark:bg-neutral-800 shadow-inner z-20 relative flex items-center justify-center">
+              <div className="w-[1px] h-full bg-black/25 dark:bg-black/60" />
+            </div>
+
+            {/* RIGHT PAGE */}
+            <div className="relative rounded-r-md overflow-hidden border-y border-r border-black/10 dark:border-white/10 bg-white min-w-[200px] flex items-center justify-center">
+              {/* Ribbon Bookmark Accent (Top Right) */}
+              <div
+                className="absolute top-0 right-8 w-3.5 h-7 z-20 pointer-events-none shadow-sm rounded-b-xs"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                }}
+              />
+
+              {/* Right page inner spine shadow (left side of right page) */}
+              <div className="absolute inset-y-0 left-0 w-8 pointer-events-none bg-gradient-to-r from-black/20 via-black/5 to-transparent z-10" />
+
+              {rightPage ? (
+                <>
+                  <canvas
+                    ref={rightCanvasRef}
+                    className="block max-w-full max-h-[calc(100vh-140px)] w-auto h-auto cursor-pointer"
+                    onClick={handleNextPage}
+                  />
+                  {/* Subtle page number stamp at bottom of right page */}
+                  <div className="absolute bottom-2 right-4 text-[10px] font-mono text-black/40 pointer-events-none select-none">
+                    {rightPage}
+                  </div>
+                </>
+              ) : (
+                /* Endpaper for uneven total pages */
+                <div
+                  className="w-full h-full min-h-[380px] flex flex-col items-center justify-center p-8 text-neutral-400 select-none bg-stone-50/50"
+                  style={{
+                    minWidth: leftCanvasRef.current ? `${leftCanvasRef.current.style.width}` : '300px',
+                    minHeight: leftCanvasRef.current ? `${leftCanvasRef.current.style.height}` : '380px',
+                  }}
+                >
+                  <div className="text-xs uppercase tracking-widest font-semibold opacity-40">
+                    Akhir Buku
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right stacked pages depth */}
+            <div
+              className="absolute -right-2 top-1.5 bottom-1.5 w-2 rounded-r-xs pointer-events-none transition-colors"
+              style={{
+                backgroundColor: settings.theme === 'dark' ? '#27272A' : '#EFECE4',
+                boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.15)',
+              }}
             />
           </div>
-        </div>
+        )}
 
         {/* Next Page Button - Rapid Clicking Enabled */}
         <button
           onClick={handleNextPage}
-          disabled={currentPage >= totalPages}
+          disabled={isNextDisabled}
           aria-label="Halaman Selanjutnya"
           className="hidden md:flex absolute right-[-64px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-90 disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
           style={{
@@ -413,7 +606,7 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
       >
         <button
           onClick={handlePrevPage}
-          disabled={currentPage <= 1}
+          disabled={isPrevDisabled}
           className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 active:scale-90"
           title="Halaman Sebelumnya"
         >
@@ -427,22 +620,52 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
             setIsJumpOpen(true);
           }}
           title="Klik untuk Melompat ke Halaman Tertentu"
-          className="text-xs font-bold px-2 py-0.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 min-w-[70px] text-center tracking-tight transition-all"
+          className="text-xs font-bold px-2 py-0.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 min-w-[75px] text-center tracking-tight transition-all"
           style={{ color: 'var(--text-primary)' }}
         >
-          {currentPage} / {totalPages}
+          {isTwoPage && rightPage
+            ? `${leftPage}-${rightPage} / ${totalPages}`
+            : `${currentPage} / ${totalPages}`}
         </button>
 
         <button
           onClick={handleNextPage}
-          disabled={currentPage >= totalPages}
+          disabled={isNextDisabled}
           className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 active:scale-90"
           title="Halaman Selanjutnya"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
 
-        <div className="h-4 w-[1px] mx-1" style={{ backgroundColor: 'var(--border-color)' }} />
+        <div className="h-4 w-[1px] mx-0.5" style={{ backgroundColor: 'var(--border-color)' }} />
+
+        {/* Two-Page Spread Quick Toggle */}
+        <button
+          onClick={() => {
+            toggleTwoPageSpread();
+            goeyToast.info(
+              !settings.twoPageSpread ? 'Mode 2 Halaman (Buku Terbuka)' : 'Mode 1 Halaman',
+              { duration: 2000 }
+            );
+          }}
+          className={`flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-bold border transition-all ${
+            settings.twoPageSpread
+              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+              : 'border-transparent hover:bg-black/5 dark:hover:bg-white/10 opacity-70 hover:opacity-100'
+          }`}
+          title={
+            settings.twoPageSpread
+              ? 'Ganti ke Mode 1 Halaman'
+              : 'Ganti ke Mode 2 Halaman (Buku Terbuka)'
+          }
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline text-[11px]">
+            {settings.twoPageSpread ? '2 Hal' : '1 Hal'}
+          </span>
+        </button>
+
+        <div className="h-4 w-[1px] mx-0.5" style={{ backgroundColor: 'var(--border-color)' }} />
 
         {/* Dark Mode Style Toggle */}
         {settings.theme === 'dark' && (
@@ -473,12 +696,12 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
                 </>
               )}
             </button>
-            <div className="h-4 w-[1px] mx-1" style={{ backgroundColor: 'var(--border-color)' }} />
+            <div className="h-4 w-[1px] mx-0.5" style={{ backgroundColor: 'var(--border-color)' }} />
           </>
         )}
 
         <button
-          onClick={() => setScale((s) => Math.max(0.6, Number((s - 0.1).toFixed(2))))}
+          onClick={() => setScale((s) => Math.max(0.4, Number((s - 0.1).toFixed(2))))}
           className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
           title="Perkecil"
         >
@@ -486,11 +709,7 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         </button>
 
         <button
-          onClick={() => {
-            const availableHeight = Math.max(450, window.innerHeight - 150);
-            const fitScale = Math.min(1.4, Math.max(0.65, availableHeight / 842));
-            setScale(Number(fitScale.toFixed(2)));
-          }}
+          onClick={() => adjustScaleToFit(settings.twoPageSpread)}
           className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
           title="Pas ke Layar"
         >
@@ -498,7 +717,7 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         </button>
 
         <button
-          onClick={() => setScale((s) => Math.min(2.0, Number((s + 0.1).toFixed(2))))}
+          onClick={() => setScale((s) => Math.min(2.2, Number((s + 0.1).toFixed(2))))}
           className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
           title="Perbesar"
         >

@@ -105,7 +105,7 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
           const rendition = epubBook.renderTo(viewerRef.current, {
             width: '100%',
             height: '100%',
-            spread: 'none',
+            spread: settings.twoPageSpread ? 'always' : 'none',
             flow: 'paginated',
           });
 
@@ -164,6 +164,16 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
   useEffect(() => {
     applyStyles();
   }, [applyStyles]);
+
+  useEffect(() => {
+    if (renditionRef.current) {
+      try {
+        renditionRef.current.spread(settings.twoPageSpread ? 'always' : 'none');
+      } catch (e) {
+        console.debug('Failed to update EPUB spread mode:', e);
+      }
+    }
+  }, [settings.twoPageSpread]);
 
   const handleNext = useCallback(() => {
     if (renditionRef.current) {

@@ -18,6 +18,8 @@ interface ReaderStoreState {
   setLineHeight: (lineHeight: number) => void;
   setPageTurnAnimation: (animation: PageTurnAnimation) => void;
   setPdfDarkModeStyle: (style: PdfDarkModeStyle) => void;
+  toggleTwoPageSpread: () => void;
+  setTwoPageSpread: (enabled: boolean) => void;
   toggleSoundEffects: () => void;
   toggleZenMode: () => void;
   setZenMode: (enabled: boolean) => void;
@@ -50,6 +52,7 @@ const DEFAULT_SETTINGS: ReaderSettings = {
   soundEffects: true,
   zenMode: false,
   pdfDarkModeStyle: 'ambient',
+  twoPageSpread: false,
 };
 
 export const useReaderStore = create<ReaderStoreState>()(
@@ -68,6 +71,12 @@ export const useReaderStore = create<ReaderStoreState>()(
         set((state) => ({ settings: { ...state.settings, pageTurnAnimation } })),
       setPdfDarkModeStyle: (pdfDarkModeStyle) =>
         set((state) => ({ settings: { ...state.settings, pdfDarkModeStyle } })),
+      toggleTwoPageSpread: () =>
+        set((state) => ({
+          settings: { ...state.settings, twoPageSpread: !state.settings.twoPageSpread },
+        })),
+      setTwoPageSpread: (twoPageSpread) =>
+        set((state) => ({ settings: { ...state.settings, twoPageSpread } })),
       toggleSoundEffects: () =>
         set((state) => ({
           settings: { ...state.settings, soundEffects: !state.settings.soundEffects },
