@@ -29,6 +29,7 @@ interface ReaderStoreState {
   currentCfi: string | null;
   isSidebarOpen: boolean;
   activeSidebarTab: 'toc' | 'bookmarks' | 'settings';
+  isControlsVisible: boolean;
 
   setActiveBook: (book: Book | null) => void;
   setCurrentPage: (page: number) => void;
@@ -37,6 +38,7 @@ interface ReaderStoreState {
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   setActiveSidebarTab: (tab: 'toc' | 'bookmarks' | 'settings') => void;
+  setIsControlsVisible: (visible: boolean) => void;
 }
 
 const DEFAULT_SETTINGS: ReaderSettings = {
@@ -44,7 +46,7 @@ const DEFAULT_SETTINGS: ReaderSettings = {
   fontSize: 18,
   fontFamily: 'serif',
   lineHeight: 1.7,
-  pageTurnAnimation: 'curl',
+  pageTurnAnimation: 'slide',
   soundEffects: true,
   zenMode: false,
   pdfDarkModeStyle: 'ambient',
@@ -71,11 +73,18 @@ export const useReaderStore = create<ReaderStoreState>()(
           settings: { ...state.settings, soundEffects: !state.settings.soundEffects },
         })),
       toggleZenMode: () =>
-        set((state) => ({
-          settings: { ...state.settings, zenMode: !state.settings.zenMode },
-        })),
+        set((state) => {
+          const nextZen = !state.settings.zenMode;
+          return {
+            settings: { ...state.settings, zenMode: nextZen },
+            isControlsVisible: !nextZen,
+          };
+        }),
       setZenMode: (zenMode) =>
-        set((state) => ({ settings: { ...state.settings, zenMode } })),
+        set((state) => ({
+          settings: { ...state.settings, zenMode },
+          isControlsVisible: !zenMode,
+        })),
 
       // Transient state
       activeBook: null,
@@ -84,12 +93,14 @@ export const useReaderStore = create<ReaderStoreState>()(
       currentCfi: null,
       isSidebarOpen: false,
       activeSidebarTab: 'toc',
+      isControlsVisible: true,
 
       setActiveBook: (activeBook) =>
         set({
           activeBook,
           currentPage: typeof activeBook?.currentLocation === 'number' ? activeBook.currentLocation : 1,
           currentCfi: typeof activeBook?.currentLocation === 'string' ? activeBook.currentLocation : null,
+          isControlsVisible: true,
         }),
       setCurrentPage: (currentPage) => set({ currentPage }),
       setTotalPages: (totalPages) => set({ totalPages }),
@@ -98,6 +109,7 @@ export const useReaderStore = create<ReaderStoreState>()(
         set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
       setSidebarOpen: (isSidebarOpen) => set({ isSidebarOpen }),
       setActiveSidebarTab: (activeSidebarTab) => set({ activeSidebarTab }),
+      setIsControlsVisible: (isControlsVisible) => set({ isControlsVisible }),
     }),
     {
       name: 'luminaread-user-settings',

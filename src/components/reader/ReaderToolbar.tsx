@@ -44,6 +44,8 @@ export default function ReaderToolbar({
     setPdfDarkModeStyle,
     toggleSoundEffects,
     toggleZenMode,
+    isControlsVisible,
+    setIsControlsVisible,
     currentPage,
     isSidebarOpen,
     setSidebarOpen,
@@ -51,7 +53,6 @@ export default function ReaderToolbar({
     setActiveSidebarTab,
   } = useReaderStore();
 
-  const [isControlsVisible, setIsControlsVisible] = useState<boolean>(true);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [isBookmarkedCurrent, setIsBookmarkedCurrent] = useState<boolean>(false);
 
@@ -87,6 +88,20 @@ export default function ReaderToolbar({
       await addBookmark(newBookmark);
     }
     refreshBookmarks();
+  };
+
+  const handleToggleZen = () => {
+    if (!settings.zenMode) {
+      toggleZenMode();
+      if (typeof document !== 'undefined' && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    } else {
+      toggleZenMode();
+      if (typeof document !== 'undefined' && document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
   };
 
   // Zen Mode Auto-Hide logic on idle
@@ -228,7 +243,7 @@ export default function ReaderToolbar({
 
             {/* Zen Mode Toggle */}
             <button
-              onClick={toggleZenMode}
+              onClick={handleToggleZen}
               title={settings.zenMode ? 'Keluar dari Zen Mode' : 'Aktifkan Zen Mode (Bebas Distraksi)'}
               className="p-2 rounded-xl transition-all"
               style={{

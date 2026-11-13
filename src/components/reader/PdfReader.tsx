@@ -13,6 +13,9 @@ import {
   RotateCcw,
   Lamp,
   Moon,
+  Search,
+  X,
+  Minimize2,
 } from 'lucide-react';
 
 interface PdfReaderProps {
@@ -37,11 +40,17 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
   const [totalPages, setTotalPages] = useState<number>(book.totalLocations || 1);
   const [scale, setScale] = useState<number>(1.0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [slidePhase, setSlidePhase] = useState<'idle' | 'exit' | 'enter'>('idle');
   const [slideDirection, setSlideDirection] = useState<'next' | 'prev'>('next');
+  const [isAnimating, setIsAnimating] = useState<boolean>(false);
+
+  // Jump to Page Popover State
+  const [isJumpOpen, setIsJumpOpen] = useState<boolean>(false);
+  const [jumpInput, setJumpInput] = useState<string>(String(initialPage));
 
   const {
     settings,
+    isControlsVisible,
+    toggleZenMode,
     setPdfDarkModeStyle,
     setTotalPages: setStoreTotalPages,
     setCurrentPage: setStoreCurrentPage,
@@ -75,11 +84,11 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         setTotalPages(doc.numPages);
         setStoreTotalPages(doc.numPages);
 
-        // Auto-fit scale to window height to guarantee zero scrollbars on load
+        // Auto-fit scale to window height to prevent double scrollbars
         try {
           const firstPage = await doc.getPage(1);
           const rawViewport = firstPage.getViewport({ scale: 1.0 });
-          const availableHeight = Math.max(450, window.innerHeight - 150);
+          const availableHeight = Math.max(450, window.innerHeight - 140);
           const fitScale = Math.min(1.4, Math.max(0.65, availableHeight / rawViewport.height));
           setScale(Number(fitScale.toFixed(2)));
         } catch (e) {
@@ -169,6 +178,8 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     if (isLoading) return;
 
     setStoreCurrentPage(currentPage);
+    setJumpInput(String(currentPage));
+
     if (onPageChangeRef.current) {
       onPageChangeRef.current(currentPage, totalPages);
     }
@@ -177,27 +188,24 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     updateBookProgress(book.id, progress, currentPage);
   }, [currentPage, totalPages, isLoading, book.id, setStoreCurrentPage]);
 
-  // Smooth, fluid e-reader slide transition (Kindle / Apple Books standard)
+  // Rapid Paging without blocking (Instant response)
   const goToPage = useCallback(
     (newPage: number, direction: 'next' | 'prev') => {
-      if (newPage < 1 || newPage > totalPages || slidePhase !== 'idle') return;
+      if (newPage < 1 || newPage > totalPages) return;
 
       if (settings.soundEffects) {
         playPageTurnSound();
       }
 
+      // Immediately change state to allow rapid clicking
+      setCurrentPage(newPage);
       setSlideDirection(direction);
-      setSlidePhase('exit');
-
+      setIsAnimating(true);
       setTimeout(() => {
-        setCurrentPage(newPage);
-        setSlidePhase('enter');
-        setTimeout(() => {
-          setSlidePhase('idle');
-        }, 180);
-      }, 140);
+        setIsAnimating(false);
+      }, 120);
     },
-    [totalPages, slidePhase, settings.soundEffects]
+    [totalPages, settings.soundEffects]
   );
 
   const handleNextPage = useCallback(() => {
@@ -208,20 +216,35 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     goToPage(currentPage - 1, 'prev');
   }, [goToPage, currentPage]);
 
+  // Jump to specific page handler
+  const handleExecuteJump = (targetPageNum: number) => {
+    const validTarget = Math.max(1, Math.min(totalPages, targetPageNum));
+    const dir = validTarget >= currentPage ? 'next' : 'prev';
+    goToPage(validTarget, dir);
+    setIsJumpOpen(false);
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isJumpOpen) {
+        if (e.key === 'Escape') setIsJumpOpen(false);
+        return;
+      }
+
       if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
         e.preventDefault();
         handleNextPage();
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
         e.preventDefault();
         handlePrevPage();
+      } else if (e.key === 'Escape' && settings.zenMode) {
+        toggleZenMode();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNextPage, handlePrevPage]);
+  }, [handleNextPage, handlePrevPage, isJumpOpen, settings.zenMode, toggleZenMode]);
 
   const getThemeFilter = () => {
     if (settings.theme === 'sepia') {
@@ -249,29 +272,6 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
     return '2px 2px 0 #E6E2D8, 4px 4px 0 #DED9CD, 0 20px 35px -10px rgba(0, 0, 0, 0.1)';
   };
 
-  // Determine transition transforms
-  const getPageMotionStyle = () => {
-    if (slidePhase === 'exit') {
-      return {
-        transform: slideDirection === 'next' ? 'translateX(-30px)' : 'translateX(30px)',
-        opacity: 0.35,
-        transition: 'transform 0.14s ease-in, opacity 0.14s ease-in',
-      };
-    }
-    if (slidePhase === 'enter') {
-      return {
-        transform: 'translateX(0)',
-        opacity: 1,
-        transition: 'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease-out',
-      };
-    }
-    return {
-      transform: 'translateX(0)',
-      opacity: 1,
-      transition: 'none',
-    };
-  };
-
   return (
     <div
       ref={containerRef}
@@ -288,7 +288,23 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         />
       )}
 
-      {/* Loading Indicator */}
+      {/* Floating Exit Zen Mode Button if in Zen Mode */}
+      {settings.zenMode && (
+        <button
+          onClick={toggleZenMode}
+          title="Keluar dari Zen Mode (Esc)"
+          className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-lg text-xs font-bold transition-all hover:scale-105 active:scale-95 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md opacity-40 hover:opacity-100"
+          style={{
+            borderColor: 'var(--border-color)',
+            color: 'var(--text-primary)',
+          }}
+        >
+          <Minimize2 className="w-3.5 h-3.5" />
+          <span>Keluar Zen Mode</span>
+        </button>
+      )}
+
+      {/* Loading Skeleton */}
       {isLoading && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-inherit">
           <div
@@ -304,15 +320,15 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
       {/* Main Reading Stage */}
       <div
         className={`relative flex items-center justify-center max-w-full max-h-full ${
-          isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'
+          isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'
         }`}
       >
-        {/* Previous Page Button */}
+        {/* Previous Page Button - Rapid Clicking Enabled */}
         <button
           onClick={handlePrevPage}
-          disabled={currentPage <= 1 || slidePhase !== 'idle'}
+          disabled={currentPage <= 1}
           aria-label="Halaman Sebelumnya"
-          className="hidden md:flex absolute left-[-64px] top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
+          className="hidden md:flex absolute left-[-64px] top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-90 disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
           style={{
             backgroundColor: 'var(--bg-surface-elevated)',
             borderColor: 'var(--border-color)',
@@ -322,7 +338,7 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        {/* Book Sheet Container with Smooth Slide & Layered Pages */}
+        {/* Book Sheet Container with Instant Fast Paging & Smooth Micro-Motion */}
         <div className="relative">
           {/* Stacked Pages Edge Depth on the right */}
           <div
@@ -333,10 +349,15 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
             }}
           />
 
-          {/* Animated Page Paper */}
+          {/* Book Paper with Smooth Transition */}
           <div
             style={{
-              ...getPageMotionStyle(),
+              transform: isAnimating
+                ? slideDirection === 'next'
+                  ? 'translateX(-12px)'
+                  : 'translateX(12px)'
+                : 'translateX(0)',
+              transition: isAnimating ? 'transform 0.08s ease-out' : 'transform 0.12s ease-out',
               filter: getThemeFilter(),
               boxShadow: getPageBoxShadow(),
               backgroundColor: '#FFFFFF',
@@ -363,12 +384,12 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
           </div>
         </div>
 
-        {/* Next Page Button */}
+        {/* Next Page Button - Rapid Clicking Enabled */}
         <button
           onClick={handleNextPage}
-          disabled={currentPage >= totalPages || slidePhase !== 'idle'}
+          disabled={currentPage >= totalPages}
           aria-label="Halaman Selanjutnya"
-          className="hidden md:flex absolute right-[-64px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-95 disabled:opacity-20 disabled:pointer-events-none"
+          className="hidden md:flex absolute right-[-64px] top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl items-center justify-center border shadow-lg transition-all active:scale-90 disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
           style={{
             backgroundColor: 'var(--bg-surface-elevated)',
             borderColor: 'var(--border-color)',
@@ -379,9 +400,11 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         </button>
       </div>
 
-      {/* Floating Bottom Control Capsule */}
+      {/* Floating Bottom Control Capsule - Hides smoothly in Zen Mode */}
       <div
-        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border shadow-xl backdrop-blur-md transition-all"
+        className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border shadow-xl backdrop-blur-md transition-all duration-300 ${
+          isControlsVisible ? 'translate-y-0 opacity-100' : 'translate-y-16 opacity-0 pointer-events-none'
+        }`}
         style={{
           backgroundColor: 'var(--bg-surface-elevated)',
           borderColor: 'var(--border-color)',
@@ -391,24 +414,30 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
         <button
           onClick={handlePrevPage}
           disabled={currentPage <= 1}
-          className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30"
-          title="Sebelumnya"
+          className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 active:scale-90"
+          title="Halaman Sebelumnya"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
 
-        <span
-          className="text-xs font-bold px-2 min-w-[65px] text-center tracking-tight"
+        {/* Interactive Page Indicator: Click to Jump! */}
+        <button
+          onClick={() => {
+            setJumpInput(String(currentPage));
+            setIsJumpOpen(true);
+          }}
+          title="Klik untuk Melompat ke Halaman Tertentu"
+          className="text-xs font-bold px-2 py-0.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 min-w-[70px] text-center tracking-tight transition-all"
           style={{ color: 'var(--text-primary)' }}
         >
           {currentPage} / {totalPages}
-        </span>
+        </button>
 
         <button
           onClick={handleNextPage}
           disabled={currentPage >= totalPages}
-          className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30"
-          title="Selanjutnya"
+          className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 active:scale-90"
+          title="Halaman Selanjutnya"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -476,6 +505,116 @@ export default function PdfReader({ book, onPageChange }: PdfReaderProps) {
           <ZoomIn className="w-4 h-4" />
         </button>
       </div>
+
+      {/* JUMP TO PAGE MODAL / SCRUBBER POPOVER */}
+      {isJumpOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={() => setIsJumpOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border p-5 shadow-2xl space-y-4"
+            style={{
+              backgroundColor: 'var(--bg-surface-elevated)',
+              borderColor: 'var(--border-color)',
+              color: 'var(--text-primary)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Search className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                <h3 className="text-sm font-bold">Lompat ke Halaman</h3>
+              </div>
+              <button
+                onClick={() => setIsJumpOpen(false)}
+                className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Direct Number Input */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const pageNum = parseInt(jumpInput, 10);
+                if (!isNaN(pageNum)) {
+                  handleExecuteJump(pageNum);
+                }
+              }}
+              className="flex items-center gap-2"
+            >
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={jumpInput}
+                autoFocus
+                onChange={(e) => setJumpInput(e.target.value)}
+                placeholder={`1 - ${totalPages}`}
+                className="flex-1 px-3.5 py-2 rounded-xl border text-base font-bold focus:outline-none"
+                style={{
+                  backgroundColor: 'var(--bg-subtle)',
+                  borderColor: 'var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
+                style={{ backgroundColor: 'var(--accent)' }}
+              >
+                Buka
+              </button>
+            </form>
+
+            {/* Quick Interactive Slider Scrubber */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                <span>Hal 1</span>
+                <span className="font-bold" style={{ color: 'var(--accent)' }}>
+                  {Math.round(((parseInt(jumpInput, 10) || currentPage) / totalPages) * 100)}%
+                </span>
+                <span>Hal {totalPages}</span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={totalPages}
+                value={parseInt(jumpInput, 10) || currentPage}
+                onChange={(e) => setJumpInput(e.target.value)}
+                className="w-full accent-amber-600 cursor-pointer"
+              />
+            </div>
+
+            {/* Quick Jump Shortcuts */}
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <button
+                onClick={() => handleExecuteJump(1)}
+                className="p-2 rounded-lg border text-[11px] font-bold hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+              >
+                Halaman 1
+              </button>
+              <button
+                onClick={() => handleExecuteJump(Math.round(totalPages / 2))}
+                className="p-2 rounded-lg border text-[11px] font-bold hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+              >
+                Tengah ({Math.round(totalPages / 2)})
+              </button>
+              <button
+                onClick={() => handleExecuteJump(totalPages)}
+                className="p-2 rounded-lg border text-[11px] font-bold hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+              >
+                Akhir ({totalPages})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

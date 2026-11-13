@@ -21,7 +21,7 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [currentProgress, setCurrentProgress] = useState<number>(book.readingProgress || 0);
 
-  const { settings, setCurrentCfi } = useReaderStore();
+  const { settings, setCurrentCfi, isControlsVisible } = useReaderStore();
 
   // Apply Theme & Font Styles with WCAG AAA Contrast
   const applyStyles = useCallback(() => {
@@ -295,9 +295,11 @@ export default function EpubReader({ book, onTocLoaded, onLocationChange }: Epub
         </button>
       </div>
 
-      {/* Bottom Progress Indicator */}
+      {/* Bottom Progress Indicator - Hides in Zen Mode */}
       <div
-        className="fixed bottom-4 z-20 flex items-center gap-2.5 px-4 py-2 rounded-2xl border text-xs font-bold shadow-md"
+        className={`fixed bottom-4 z-20 flex items-center gap-2.5 px-4 py-2 rounded-2xl border text-xs font-bold shadow-md transition-all duration-300 ${
+          isControlsVisible ? 'translate-y-0 opacity-100' : 'translate-y-16 opacity-0 pointer-events-none'
+        }`}
         style={{
           backgroundColor: 'var(--bg-surface-elevated)',
           borderColor: 'var(--border-color)',
